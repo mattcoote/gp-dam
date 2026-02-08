@@ -182,6 +182,11 @@ export default function SelectionDetailPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
 
+              <span className="font-[family-name:var(--font-oswald)] text-lg font-bold tracking-tight uppercase hidden sm:inline">
+                GP
+              </span>
+              <span className="hidden sm:inline text-gray-300">|</span>
+
               {isEditingName ? (
                 <div className="flex items-center gap-2">
                   <input

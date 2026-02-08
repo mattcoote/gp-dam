@@ -397,14 +397,16 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="w-full max-w-sm px-6">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
+          <div className="mb-5">
+            <span className="font-[family-name:var(--font-oswald)] text-2xl font-bold tracking-tight uppercase">
+              General Public
+            </span>
+          </div>
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-3">
             <Lock className="w-5 h-5 text-gray-500" />
           </div>
-          <h1 className="text-xl font-light tracking-[0.2em] uppercase">
-            Admin
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Enter password to continue
+          <p className="text-sm text-gray-400">
+            Enter admin password to continue
           </p>
         </div>
 
@@ -627,16 +629,21 @@ export default function AdminPage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-5xl items-center gap-4 px-6">
-          <a
-            href="/"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </a>
-          <h1 className="text-xl font-light tracking-[0.2em] uppercase">
-            Admin
-          </h1>
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+          <div className="flex items-center gap-4">
+            <a
+              href="/"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </a>
+            <span className="font-[family-name:var(--font-oswald)] text-xl font-bold tracking-tight uppercase">
+              General Public
+            </span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider border-l border-border pl-4">
+              Admin
+            </span>
+          </div>
         </div>
       </header>
 

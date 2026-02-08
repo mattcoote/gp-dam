@@ -72,8 +72,13 @@ export default function SharedSelectionPage() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold mb-2">Selection Not Found</h1>
-          <p className="text-gray-500">
+          <div className="mb-6">
+            <span className="font-[family-name:var(--font-oswald)] text-2xl font-bold tracking-tight uppercase">
+              General Public
+            </span>
+          </div>
+          <h1 className="text-xl font-semibold mb-2">Selection Not Found</h1>
+          <p className="text-gray-500 text-sm">
             This link may have expired or the selection may have been deleted.
           </p>
         </div>
@@ -88,11 +93,16 @@ export default function SharedSelectionPage() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="mb-6">
+            <span className="font-[family-name:var(--font-oswald)] text-xl font-bold tracking-tight uppercase">
+              General Public
+            </span>
+          </div>
           <div className="flex items-center gap-3 mb-3">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-              Shared Selection
+              Curated Selection
             </span>
-            <span className="text-xs text-gray-300">•</span>
+            <span className="text-xs text-gray-300">/</span>
             <span className="text-xs text-gray-400">
               {selection.items.length} work
               {selection.items.length !== 1 ? "s" : ""}
@@ -104,10 +114,6 @@ export default function SharedSelectionPage() {
           {selection.notes && (
             <p className="mt-3 text-gray-500 max-w-2xl">{selection.notes}</p>
           )}
-          <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
-            <span>Curated by</span>
-            <span className="font-medium text-gray-600">General Public</span>
-          </div>
         </div>
       </header>
 
@@ -274,9 +280,12 @@ export default function SharedSelectionPage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-200 py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-sm text-gray-400">
-            General Public &middot; Art Print Company
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-2">
+          <span className="font-[family-name:var(--font-oswald)] text-sm font-bold tracking-tight uppercase">
+            General Public
+          </span>
+          <p className="text-xs text-gray-400">
+            Art Print Company
           </p>
         </div>
       </footer>

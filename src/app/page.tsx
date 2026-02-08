@@ -114,23 +114,27 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-border sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <h1 className="text-xl font-light tracking-[0.2em] uppercase">
-            General Public
-          </h1>
-          <a
-            href="/admin"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Admin
+          <a href="/" className="flex items-center gap-0">
+            <span className="font-[family-name:var(--font-oswald)] text-2xl font-bold tracking-tight uppercase">
+              General Public
+            </span>
           </a>
+          <nav className="flex items-center gap-6">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider hidden sm:inline">
+              Art Catalog
+            </span>
+            <a
+              href="/admin"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Admin
+            </a>
+          </nav>
         </div>
       </header>
 
       {/* Search Section */}
       <section className="mx-auto max-w-3xl px-6 pt-12 pb-8 text-center">
-        <h2 className="text-3xl font-light tracking-tight mb-1">
-          Art Catalog
-        </h2>
         <p className="text-muted-foreground mb-8 text-sm">
           {pagination
             ? `${pagination.total} works in the collection`
@@ -218,6 +222,18 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8 mb-16">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-2">
+          <span className="font-[family-name:var(--font-oswald)] text-sm font-bold tracking-tight uppercase">
+            General Public
+          </span>
+          <p className="text-xs text-muted-foreground">
+            Art Print Company
+          </p>
+        </div>
+      </footer>
 
       {/* Work Detail Modal */}
       <WorkDetailModal

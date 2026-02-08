@@ -10,8 +10,9 @@
   --color-primary-foreground: #ffffff;
   --color-accent: #f5f5f5;
   --color-accent-foreground: #111111;
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+  --font-brand: var(--font-oswald);
 }
 
 body {
