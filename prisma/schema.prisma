@@ -1,0 +1,215 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector, pgcrypto]
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum SourceType {
+  gp_original
+  rijksmuseum
+  getty
+  national_gallery
+}
+
+enum WorkType {
+  synograph
+  work_on_paper
+  work_on_canvas
+  photography
+  reductive
+}
+
+enum Orientation {
+  portrait
+  landscape
+  square
+}
+
+enum WorkStatus {
+  active
+  pending
+  archived
+}
+
+enum UserRole {
+  admin
+  sales
+  external_partner
+}
+
+// ─── Users ───────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String    @unique
+  name          String?
+  role          UserRole  @default(sales)
+  company       String?
+  image         String?
+  emailVerified DateTime?
+
+  // NextAuth fields
+  accounts Account[]
+  sessions Session[]
+
+  // Relations
+  selections    Selection[]
+  uploadedWorks Work[]      @relation("UploadedBy")
+  searchQueries SearchQuery[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ─── NextAuth Models ─────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Works ───────────────────────────────────────────────────
+
+model Work {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gpSku            String?     @unique @map("gp_sku")
+  title            String
+  artistName       String      @map("artist_name")
+  sourceType       SourceType  @default(gp_original) @map("source_type")
+  sourceId         String?     @map("source_id")
+  dimensionsInches Json?       @map("dimensions_inches") // { width: float, height: float, depth?: float }
+  workType         WorkType    @map("work_type")
+  retailerExclusive String?    @map("retailer_exclusive") // RH, CB2, Rejuvenation, Anthropologie
+  artistExclusiveTo String?    @map("artist_exclusive_to")
+  customResizeAvailable Boolean @default(true) @map("custom_resize_available")
+
+  // Images (S3 URLs)
+  imageUrlThumbnail String?  @map("image_url_thumbnail")
+  imageUrlPreview   String?  @map("image_url_preview")
+  imageUrlSource    String?  @map("image_url_source")
+
+  // Computed / AI
+  orientation    Orientation?
+  dominantColors Json?         @map("dominant_colors") // [{r, g, b}, ...]
+  aiTagsHero     String[]      @map("ai_tags_hero")    // 10 visible tags
+  aiTagsHidden   String[]      @map("ai_tags_hidden")  // 50+ search tags
+  embedding      Unsupported("vector(1536)")?           // pgvector embedding
+
+  status    WorkStatus @default(pending)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  createdById    String?         @map("created_by") @db.Uuid
+  createdBy      User?           @relation("UploadedBy", fields: [createdById], references: [id])
+  selectionItems SelectionItem[]
+
+  @@index([status])
+  @@index([sourceType])
+  @@index([workType])
+  @@index([artistName])
+  @@index([retailerExclusive])
+  @@map("works")
+}
+
+// ─── Selections ──────────────────────────────────────────────
+
+model Selection {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String? @map("user_id") @db.Uuid
+  sessionId String? @map("session_id") // For anonymous users
+  name      String  @default("Untitled Selection")
+  notes     String? @db.Text
+  shareToken String @unique @default(dbgenerated("gen_random_uuid()")) @map("share_token")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User?           @relation(fields: [userId], references: [id])
+  items SelectionItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("selections")
+}
+
+model SelectionItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  selectionId String  @map("selection_id") @db.Uuid
+  workId      String  @map("work_id") @db.Uuid
+  position    Int     @default(0)
+  notes       String? @db.Text
+
+  addedAt DateTime @default(now()) @map("added_at")
+
+  // Relations
+  selection Selection @relation(fields: [selectionId], references: [id], onDelete: Cascade)
+  work      Work      @relation(fields: [workId], references: [id])
+
+  @@unique([selectionId, workId])
+  @@index([selectionId])
+  @@map("selection_items")
+}
+
+// ─── Search Analytics ────────────────────────────────────────
+
+model SearchQuery {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  queryText      String   @map("query_text")
+  filtersApplied Json?    @map("filters_applied")
+  resultsCount   Int      @default(0) @map("results_count")
+  clickedWorkIds String[] @map("clicked_work_ids") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("search_queries")
+}

@@ -1,0 +1,192 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import AddToSelectionButton from "@/components/selections/AddToSelectionButton";
+
+interface WorkDetail {
+  id: string;
+  gpSku: string | null;
+  title: string;
+  artistName: string;
+  sourceType: string;
+  workType: string;
+  orientation: string | null;
+  dimensionsInches: { width: number; height: number; depth?: number } | null;
+  imageUrlPreview: string | null;
+  aiTagsHero: string[];
+  retailerExclusive: string | null;
+  customResizeAvailable: boolean;
+}
+
+interface WorkDetailModalProps {
+  workId: string | null;
+  onClose: () => void;
+  sessionId: string;
+}
+
+const WORK_TYPE_LABELS: Record<string, string> = {
+  synograph: "Synograph",
+  work_on_paper: "Work on Paper",
+  work_on_canvas: "Work on Canvas",
+  photography: "Photography",
+  reductive: "Reductive",
+};
+
+export default function WorkDetailModal({
+  workId,
+  onClose,
+  sessionId,
+}: WorkDetailModalProps) {
+  const [work, setWork] = useState<WorkDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!workId) {
+      setWork(null);
+      return;
+    }
+
+    setLoading(true);
+    fetch(`/api/works/${workId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setWork(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [workId]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (workId) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [workId, onClose]);
+
+  if (!workId) return null;
+
+  const dims = work?.dimensionsInches as {
+    width: number;
+    height: number;
+    depth?: number;
+  } | null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 rounded-full bg-white/90 p-2 text-foreground hover:bg-white transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {loading || !work ? (
+          <div className="flex items-center justify-center h-96">
+            <div className="h-8 w-8 rounded-full border-2 border-foreground border-t-transparent animate-spin" />
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row">
+            {/* Image */}
+            <div className="flex-1 bg-muted p-8 flex items-center justify-center min-h-[300px]">
+              {work.imageUrlPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={work.imageUrlPreview}
+                  alt={work.title}
+                  className="max-h-[60vh] w-auto object-contain"
+                />
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  No image available
+                </div>
+              )}
+            </div>
+
+            {/* Details */}
+            <div className="w-full md:w-80 p-6 flex flex-col gap-4">
+              <div>
+                <h2 className="text-xl font-medium">{work.title}</h2>
+                <p className="text-muted-foreground">{work.artistName}</p>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                {dims && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Dimensions</span>
+                    <span>
+                      {dims.width} x {dims.height}
+                      {dims.depth ? ` x ${dims.depth}` : ""}&quot;
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Type</span>
+                  <span>
+                    {WORK_TYPE_LABELS[work.workType] || work.workType}
+                  </span>
+                </div>
+                {work.gpSku && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">SKU</span>
+                    <span className="font-mono text-xs">{work.gpSku}</span>
+                  </div>
+                )}
+                {work.retailerExclusive && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Retailer</span>
+                    <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      {work.retailerExclusive} Exclusive
+                    </span>
+                  </div>
+                )}
+                {work.customResizeAvailable && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Custom sizing available
+                  </p>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Tags</p>
+                <div className="flex flex-wrap gap-1">
+                  {work.aiTagsHero.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 mt-auto pt-4">
+                <AddToSelectionButton
+                  workId={work.id}
+                  sessionId={sessionId}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
