@@ -14,6 +14,7 @@ export const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET || "";
+const REGION = process.env.AWS_REGION || "us-east-1";
 const CDN_URL = process.env.CLOUDFRONT_URL || "";
 
 export async function uploadToS3(
@@ -34,7 +35,7 @@ export async function uploadToS3(
   if (CDN_URL) {
     return `${CDN_URL}/${key}`;
   }
-  return `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
+  return `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
 }
 
 export async function getSignedDownloadUrl(key: string): Promise<string> {
