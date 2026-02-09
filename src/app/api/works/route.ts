@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
           gpExclusive: true,
           dominantColors: true,
           status: true,
+          createdAt: true,
         },
       }),
       prisma.work.count({ where }),

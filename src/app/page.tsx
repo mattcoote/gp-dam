@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, X, CheckSquare } from "lucide-react";
+import { Search, X, CheckSquare, Grid3X3, Grid2X2 } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
 import SelectionBar from "@/components/selections/SelectionBar";
@@ -21,6 +21,7 @@ interface Work {
   aiTagsHero: string[];
   retailerExclusive: string | null;
   gpExclusive: boolean;
+  createdAt: string; // ISO timestamp — import log, hidden on main page, available for future filtering
 }
 
 interface Pagination {
@@ -61,6 +62,9 @@ export default function Home() {
 
   // Active selection (F1)
   const [activeSelectionId, setActiveSelectionId] = useState<string | null>(null);
+
+  // Thumbnail size: "large" (fewer columns) or "small" (more columns)
+  const [thumbSize, setThumbSize] = useState<"large" | "small">("large");
 
   // Bulk select mode (F2)
   const [selectMode, setSelectMode] = useState(false);
@@ -258,8 +262,34 @@ export default function Home() {
 
       {/* Works Grid */}
       <section className="mx-auto max-w-7xl px-6 pb-24">
-        {/* Select mode toggle */}
-        <div className="flex justify-end mb-4">
+        {/* Toolbar: thumbnail size toggle + select mode */}
+        <div className="flex items-center justify-end gap-2 mb-4">
+          {/* Thumbnail size toggle */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setThumbSize("large")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                thumbSize === "large"
+                  ? "bg-black text-white"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+              title="Large thumbnails"
+            >
+              <Grid2X2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setThumbSize("small")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                thumbSize === "small"
+                  ? "bg-black text-white"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+              title="Small thumbnails"
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
             className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -273,8 +303,13 @@ export default function Home() {
           </button>
         </div>
         {loading ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            className="grid gap-4"
+            style={{
+              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
+            }}
+          >
+            {Array.from({ length: thumbSize === "small" ? 12 : 8 }).map((_, i) => (
               <div key={i}>
                 <div className="aspect-[3/4] rounded-lg bg-muted animate-pulse mb-3" />
                 <div className="h-4 w-3/4 bg-muted rounded animate-pulse mb-1" />
@@ -302,11 +337,17 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <div className="columns-2 sm:columns-3 lg:columns-4 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
+          <div
+            className={thumbSize === "small" ? "grid gap-3" : "grid gap-4"}
+            style={{
+              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
+            }}
+          >
             {works.map((work) => (
               <WorkCard
                 key={work.id}
                 work={work}
+                compact={thumbSize === "small"}
                 onSelect={(w) => {
                   if (selectMode) {
                     toggleWorkSelection(w.id);

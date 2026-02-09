@@ -15,7 +15,7 @@ A Digital Asset Management system for **General Public** (art print company), re
 ## Current State: Deployed + Working
 
 ### What's Done
-- **Catalog homepage** with search, filters (orientation, work type, search tags, GP Exclusive), masonry grid layout, GP branding, centered bold "ART CATALOG" header
+- **Catalog homepage** with search, filters (orientation, work type, search tags, GP Exclusive), responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
 - **Work detail modal** with full metadata, tags, dimensions, source label, max print size, one-click "Add to Selection" button
 - **AI tagging** with OpenAI GPT-4o vision (10 hero + 50 hidden tags per work)
 - **Vector/semantic search** with text-embedding-3-large (1536-dim pgvector embeddings)

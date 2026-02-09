@@ -23,6 +23,7 @@ interface WorkCardProps {
   onSelect?: (work: WorkCardProps["work"]) => void;
   selectMode?: boolean;
   isSelected?: boolean;
+  compact?: boolean;
 }
 
 export default function WorkCard({
@@ -30,6 +31,7 @@ export default function WorkCard({
   onSelect,
   selectMode = false,
   isSelected = false,
+  compact = false,
 }: WorkCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -44,7 +46,7 @@ export default function WorkCard({
       }`}
     >
       {/* Image */}
-      <div className="relative overflow-hidden rounded-lg bg-muted mb-3">
+      <div className={`relative overflow-hidden rounded-lg bg-muted ${compact ? "mb-2" : "mb-3"}`}>
         {work.imageUrlThumbnail && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -94,21 +96,21 @@ export default function WorkCard({
       </div>
 
       {/* Info */}
-      <h3 className="text-sm font-medium leading-tight truncate">
+      <h3 className={`font-medium leading-tight truncate ${compact ? "text-xs" : "text-sm"}`}>
         {work.title}
       </h3>
-      <p className="text-xs text-muted-foreground mt-0.5">{work.artistName}</p>
-      {dims && (
+      <p className={`text-muted-foreground mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{work.artistName}</p>
+      {!compact && dims && (
         <p className="text-xs text-muted-foreground">
           {dims.width} x {dims.height}&quot;
         </p>
       )}
-      {maxPrint && (
+      {!compact && maxPrint && (
         <p className="text-[10px] text-muted-foreground">
           Max print: {maxPrint.width}&quot; &times; {maxPrint.height}&quot;
         </p>
       )}
-      {work.sourceLabel && (
+      {!compact && work.sourceLabel && (
         <p className="text-[10px] text-muted-foreground">
           {work.sourceLabel}
         </p>
