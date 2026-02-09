@@ -82,7 +82,11 @@ export default function SelectionBar({
   if (selections.length === 0 && !showNewInput) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
+    <div className={`fixed bottom-0 left-0 right-0 border-t shadow-lg z-40 ${
+      activeSelection && activeSelection.items.length > 0
+        ? "bg-gray-100 border-gray-300"
+        : "bg-white border-gray-200"
+    }`}>
       {/* Collapsed bar */}
       <div className="px-6 py-3 flex items-center justify-between">
         <button

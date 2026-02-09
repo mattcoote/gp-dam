@@ -40,7 +40,7 @@ A Digital Asset Management system for **General Public** (art print company), re
   - **Active selection model** — one-click add to the currently active selection
   - **Auto-create** — if no selection exists, clicking "Add to Selection" creates "Selection 1" automatically
   - **Bulk select mode** — checkbox overlay on catalog cards, floating action bar to add multiple works at once
-  - **Selection bar** — fixed bottom bar showing active selection name + work count, create/switch selections
+  - **Selection bar** — fixed bottom bar showing active selection name + work count, create/switch selections, grey background when selection has items
   - Drag-to-reorder, per-item notes, selection-level notes
 - **Share links** with unique tokens, public read-only view with GP branding + masonry layout
 - **Export formats:**

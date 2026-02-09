@@ -200,7 +200,7 @@ export default function Home() {
               General Public
             </span>
           </a>
-          <span className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-oswald)] text-sm font-bold uppercase tracking-wider">
+          <span className="hidden sm:block absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-oswald)] text-sm font-bold uppercase tracking-wider">
             Art Catalog
           </span>
           <nav className="ml-auto flex items-center gap-6">
