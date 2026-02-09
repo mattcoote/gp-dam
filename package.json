@@ -26,6 +26,7 @@
     "papaparse": "^5.5.3",
     "pdfkit": "^0.17.2",
     "pg": "^8.18.0",
+    "pptxgenjs": "^4.0.1",
     "prisma": "^7.3.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",

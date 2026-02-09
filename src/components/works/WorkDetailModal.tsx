@@ -10,9 +10,11 @@ interface WorkDetail {
   title: string;
   artistName: string;
   sourceType: string;
+  sourceLabel: string | null;
   workType: string;
   orientation: string | null;
   dimensionsInches: { width: number; height: number; depth?: number } | null;
+  maxPrintInches: { width: number; height: number } | null;
   imageUrlPreview: string | null;
   aiTagsHero: string[];
   retailerExclusive: string | null;
@@ -23,6 +25,8 @@ interface WorkDetailModalProps {
   workId: string | null;
   onClose: () => void;
   sessionId: string;
+  activeSelectionId: string | null;
+  onSetActiveSelectionId: (id: string) => void;
 }
 
 const WORK_TYPE_LABELS: Record<string, string> = {
@@ -37,6 +41,8 @@ export default function WorkDetailModal({
   workId,
   onClose,
   sessionId,
+  activeSelectionId,
+  onSetActiveSelectionId,
 }: WorkDetailModalProps) {
   const [work, setWork] = useState<WorkDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,6 +83,10 @@ export default function WorkDetailModal({
     width: number;
     height: number;
     depth?: number;
+  } | null;
+  const maxPrint = work?.maxPrintInches as {
+    width: number;
+    height: number;
   } | null;
 
   return (
@@ -140,6 +150,20 @@ export default function WorkDetailModal({
                     {WORK_TYPE_LABELS[work.workType] || work.workType}
                   </span>
                 </div>
+                {maxPrint && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Max Print</span>
+                    <span>
+                      {maxPrint.width}&quot; &times; {maxPrint.height}&quot;
+                    </span>
+                  </div>
+                )}
+                {work.sourceLabel && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Source</span>
+                    <span>{work.sourceLabel}</span>
+                  </div>
+                )}
                 {work.gpSku && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">SKU</span>
@@ -181,6 +205,8 @@ export default function WorkDetailModal({
                 <AddToSelectionButton
                   workId={work.id}
                   sessionId={sessionId}
+                  activeSelectionId={activeSelectionId}
+                  onSetActiveSelectionId={onSetActiveSelectionId}
                 />
               </div>
             </div>

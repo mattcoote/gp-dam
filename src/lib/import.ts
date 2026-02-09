@@ -15,6 +15,11 @@ export interface CsvRow {
   retailer_exclusive?: string;
   artist_exclusive_to?: string;
   source_type?: string;
+  source_id?: string;
+  source?: string; // Human-readable source label: "General Public", "Visual Contrast", etc.
+  max_print_width?: number; // Computed from source image pixels / 300 DPI
+  max_print_height?: number;
+  gp_exclusive?: string; // "yes"/"true"/"1" = GP exclusive
 }
 
 export interface ImportResult {
@@ -37,7 +42,10 @@ const VALID_SOURCE_TYPES = [
   "gp_original",
   "rijksmuseum",
   "getty",
+  "met",
+  "yale",
   "national_gallery",
+  "cleveland",
 ];
 
 function parseDimensions(
@@ -93,18 +101,44 @@ export async function processWorkImport(
   options: { skipAiTagging?: boolean } = {}
 ): Promise<ImportResult> {
   const workId = uuidv4();
-  const gpSku = row.gp_sku?.trim() || (await generateGpSku());
+  const sourceType = (row.source_type || "gp_original").trim().toLowerCase();
+  const isPublicDomain = sourceType !== "gp_original";
+  // Only auto-generate GP SKU for GP original works, not public domain imports
+  const gpSku = row.gp_sku?.trim() || (isPublicDomain ? null : await generateGpSku());
   const dims = parseDimensions(row.dimensions);
   const orientation = determineOrientation(dims);
+  const gpExclusive = ["yes", "true", "1"].includes(
+    (row.gp_exclusive || "").trim().toLowerCase()
+  );
+
+  // Compute max print inches from source image or provided values
+  let maxPrintInches: { width: number; height: number } | null = null;
+  if (row.max_print_width && row.max_print_height) {
+    maxPrintInches = {
+      width: Math.round(row.max_print_width * 10) / 10,
+      height: Math.round(row.max_print_height * 10) / 10,
+    };
+  }
 
   try {
+    // Compute max print inches from source image if not already provided
+    if (!maxPrintInches) {
+      const metadata = await sharp(imageBuffer).metadata();
+      if (metadata.width && metadata.height) {
+        maxPrintInches = {
+          width: Math.round((metadata.width / 300) * 10) / 10,
+          height: Math.round((metadata.height / 300) * 10) / 10,
+        };
+      }
+    }
+
     // Generate image variants with sharp
     const sourceBuffer = await sharp(imageBuffer)
       .jpeg({ quality: 85 })
       .toBuffer();
 
     const thumbnailBuffer = await sharp(imageBuffer)
-      .resize(300, null, { withoutEnlargement: true })
+      .resize(600, null, { withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toBuffer();
 
@@ -180,28 +214,34 @@ export async function processWorkImport(
       // Use raw SQL for embedding vector insert (Prisma doesn't support vector type directly)
       await prisma.$executeRawUnsafe(
         `INSERT INTO works (
-          id, gp_sku, title, artist_name, source_type, work_type,
-          dimensions_inches, orientation, retailer_exclusive, artist_exclusive_to,
+          id, gp_sku, title, artist_name, source_type, source_id, source_label,
+          dimensions_inches, max_print_inches, orientation, work_type,
+          retailer_exclusive, artist_exclusive_to, gp_exclusive,
           image_url_thumbnail, image_url_preview, image_url_source,
           ai_tags_hero, ai_tags_hidden, dominant_colors, embedding,
           status, created_at, updated_at
         ) VALUES (
-          $1::uuid, $2, $3, $4, $5::"SourceType", $6::"WorkType",
-          $7::jsonb, $8::"Orientation", $9, $10,
-          $11, $12, $13,
-          $14::text[], $15::text[], $16::jsonb, $17::vector,
+          $1::uuid, $2, $3, $4, $5::"SourceType", $6, $7,
+          $8::jsonb, $9::jsonb, $10::"Orientation", $11::"WorkType",
+          $12, $13, $14,
+          $15, $16, $17,
+          $18::text[], $19::text[], $20::jsonb, $21::vector,
           'active'::"WorkStatus", NOW(), NOW()
         )`,
         workId,
-        gpSku,
+        gpSku || null,
         row.title.trim(),
         row.artist_name.trim(),
-        (row.source_type || "gp_original").trim().toLowerCase(),
-        row.work_type.trim().toLowerCase(),
+        sourceType,
+        row.source_id?.trim() || null,
+        row.source?.trim() || null,
         dims ? JSON.stringify(dims) : null,
+        maxPrintInches ? JSON.stringify(maxPrintInches) : null,
         orientation,
+        row.work_type.trim().toLowerCase(),
         row.retailer_exclusive?.trim() || null,
         row.artist_exclusive_to?.trim() || null,
+        gpExclusive,
         imageUrlThumbnail,
         imageUrlPreview,
         imageUrlSource,
@@ -215,17 +255,19 @@ export async function processWorkImport(
       await prisma.work.create({
         data: {
           id: workId,
-          gpSku,
+          gpSku: gpSku || undefined,
           title: row.title.trim(),
           artistName: row.artist_name.trim(),
-          sourceType: (row.source_type || "gp_original")
-            .trim()
-            .toLowerCase() as "gp_original",
+          sourceType: sourceType as "gp_original",
+          sourceId: row.source_id?.trim() || null,
+          sourceLabel: row.source?.trim() || null,
           workType: row.work_type.trim().toLowerCase() as "synograph",
           dimensionsInches: dims || undefined,
+          maxPrintInches: maxPrintInches || undefined,
           orientation,
           retailerExclusive: row.retailer_exclusive?.trim() || null,
           artistExclusiveTo: row.artist_exclusive_to?.trim() || null,
+          gpExclusive,
           imageUrlThumbnail,
           imageUrlPreview,
           imageUrlSource,
@@ -239,7 +281,7 @@ export async function processWorkImport(
 
     return {
       success: true,
-      gpSku,
+      gpSku: gpSku || "—",
       title: row.title.trim(),
       artistName: row.artist_name.trim(),
     };
@@ -247,7 +289,7 @@ export async function processWorkImport(
     console.error(`Failed to import "${row.title}":`, error);
     return {
       success: false,
-      gpSku,
+      gpSku: gpSku || "N/A",
       title: row.title.trim(),
       artistName: row.artist_name.trim(),
       error: error instanceof Error ? error.message : "Unknown error",

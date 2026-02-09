@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, CheckSquare } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
 import SelectionBar from "@/components/selections/SelectionBar";
@@ -14,9 +14,13 @@ interface Work {
   workType: string;
   orientation: string | null;
   dimensionsInches: { width: number; height: number } | null;
+  maxPrintInches: { width: number; height: number } | null;
+  sourceType: string;
+  sourceLabel: string | null;
   imageUrlThumbnail: string | null;
   aiTagsHero: string[];
   retailerExclusive: string | null;
+  gpExclusive: boolean;
 }
 
 interface Pagination {
@@ -27,6 +31,7 @@ interface Pagination {
 }
 
 const QUICK_FILTERS = [
+  { label: "GP Exclusive", param: "gpExclusive", value: "true" },
   { label: "Landscapes", param: "orientation", value: "landscape" },
   { label: "Portraits", param: "orientation", value: "portrait" },
   { label: "Abstract", param: "search", value: "abstract" },
@@ -54,9 +59,28 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sessionId, setSessionId] = useState("");
 
-  // Initialize session ID on client
+  // Active selection (F1)
+  const [activeSelectionId, setActiveSelectionId] = useState<string | null>(null);
+
+  // Bulk select mode (F2)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedWorkIds, setSelectedWorkIds] = useState<Set<string>>(new Set());
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
+
+  // Initialize session ID and active selection on client
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
+    const stored = localStorage.getItem("dam-active-selection-id");
+    if (stored) setActiveSelectionId(stored);
+  }, []);
+
+  const updateActiveSelectionId = useCallback((id: string | null) => {
+    setActiveSelectionId(id);
+    if (id) {
+      localStorage.setItem("dam-active-selection-id", id);
+    } else {
+      localStorage.removeItem("dam-active-selection-id");
+    }
   }, []);
 
   // Debounce search
@@ -109,20 +133,73 @@ export default function Home() {
     setActiveFilter((prev) => (prev === label ? null : label));
   };
 
+  // Bulk select helpers (F2)
+  function toggleWorkSelection(workId: string) {
+    setSelectedWorkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(workId)) {
+        next.delete(workId);
+      } else {
+        next.add(workId);
+      }
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedWorkIds(new Set());
+  }
+
+  async function bulkAddToSelection() {
+    if (selectedWorkIds.size === 0) return;
+    setIsBulkAdding(true);
+
+    let selectionId = activeSelectionId;
+
+    // Auto-create if no active selection
+    if (!selectionId) {
+      const res = await fetch("/api/selections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Selection 1", sessionId }),
+      });
+      const data = await res.json();
+      selectionId = data.selection.id;
+      updateActiveSelectionId(selectionId);
+    }
+
+    // Add each work sequentially
+    for (const workId of selectedWorkIds) {
+      try {
+        await fetch(`/api/selections/${selectionId}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workId }),
+        });
+      } catch {
+        // Skip duplicates / errors
+      }
+    }
+
+    setIsBulkAdding(false);
+    exitSelectMode();
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-border sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center px-6 relative">
           <a href="/" className="flex items-center gap-0">
             <span className="font-[family-name:var(--font-oswald)] text-2xl font-bold tracking-tight uppercase">
               General Public
             </span>
           </a>
-          <nav className="flex items-center gap-6">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider hidden sm:inline">
-              Art Catalog
-            </span>
+          <span className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-oswald)] text-sm font-bold uppercase tracking-wider">
+            Art Catalog
+          </span>
+          <nav className="ml-auto flex items-center gap-6">
             <a
               href="/admin"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -181,6 +258,20 @@ export default function Home() {
 
       {/* Works Grid */}
       <section className="mx-auto max-w-7xl px-6 pb-24">
+        {/* Select mode toggle */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              selectMode
+                ? "bg-black text-white"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+          >
+            <CheckSquare className="w-4 h-4" />
+            {selectMode ? "Cancel Selection" : "Select Multiple"}
+          </button>
+        </div>
         {loading ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -211,12 +302,20 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="columns-2 sm:columns-3 lg:columns-4 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
             {works.map((work) => (
               <WorkCard
                 key={work.id}
                 work={work}
-                onSelect={(w) => setSelectedWorkId(w.id)}
+                onSelect={(w) => {
+                  if (selectMode) {
+                    toggleWorkSelection(w.id);
+                  } else {
+                    setSelectedWorkId(w.id);
+                  }
+                }}
+                selectMode={selectMode}
+                isSelected={selectedWorkIds.has(work.id)}
               />
             ))}
           </div>
@@ -230,20 +329,52 @@ export default function Home() {
             General Public
           </span>
           <p className="text-xs text-muted-foreground">
-            Art Print Company
+            &copy;2026
           </p>
         </div>
       </footer>
+
+      {/* Bulk Select Action Bar */}
+      {selectMode && selectedWorkIds.size > 0 && (
+        <div className="fixed bottom-16 left-0 right-0 z-50 flex justify-center px-6 pb-2">
+          <div className="bg-black text-white rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium">
+              {selectedWorkIds.size} selected
+            </span>
+            <button
+              onClick={bulkAddToSelection}
+              disabled={isBulkAdding}
+              className="px-4 py-1.5 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors"
+            >
+              {isBulkAdding ? "Adding..." : "Add to Selection"}
+            </button>
+            <button
+              onClick={exitSelectMode}
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Work Detail Modal */}
       <WorkDetailModal
         workId={selectedWorkId}
         onClose={() => setSelectedWorkId(null)}
         sessionId={sessionId}
+        activeSelectionId={activeSelectionId}
+        onSetActiveSelectionId={updateActiveSelectionId}
       />
 
       {/* Selection Bar */}
-      {sessionId && <SelectionBar sessionId={sessionId} />}
+      {sessionId && (
+        <SelectionBar
+          sessionId={sessionId}
+          activeSelectionId={activeSelectionId}
+          onSetActiveSelectionId={updateActiveSelectionId}
+        />
+      )}
     </div>
   );
 }

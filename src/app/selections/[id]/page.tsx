@@ -241,6 +241,13 @@ export default function SelectionDetailPage() {
                 <FileSpreadsheet className="w-4 h-4" />
                 Excel
               </Link>
+              <Link
+                href={`/api/selections/${selectionId}/export/ppt`}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                PPT
+              </Link>
               <button
                 onClick={copyShareLink}
                 className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${

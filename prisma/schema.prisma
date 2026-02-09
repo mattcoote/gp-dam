@@ -15,7 +15,10 @@ enum SourceType {
   gp_original
   rijksmuseum
   getty
+  met
+  yale
   national_gallery
+  cleveland
 }
 
 enum WorkType {
@@ -121,10 +124,13 @@ model Work {
   artistName       String      @map("artist_name")
   sourceType       SourceType  @default(gp_original) @map("source_type")
   sourceId         String?     @map("source_id")
+  sourceLabel      String?     @map("source_label") // Human-readable: "General Public", "Cleveland Museum of Art", etc.
   dimensionsInches Json?       @map("dimensions_inches") // { width: float, height: float, depth?: float }
+  maxPrintInches   Json?       @map("max_print_inches") // { width: float, height: float } — computed from source image
   workType         WorkType    @map("work_type")
   retailerExclusive String?    @map("retailer_exclusive") // RH, CB2, Rejuvenation, Anthropologie
   artistExclusiveTo String?    @map("artist_exclusive_to")
+  gpExclusive       Boolean    @default(false) @map("gp_exclusive") // true = GP exclusive, not available through other retailers
   customResizeAvailable Boolean @default(true) @map("custom_resize_available")
 
   // Images (S3 URLs)
@@ -148,11 +154,13 @@ model Work {
   createdBy      User?           @relation("UploadedBy", fields: [createdById], references: [id])
   selectionItems SelectionItem[]
 
+  @@unique([sourceType, sourceId])
   @@index([status])
   @@index([sourceType])
   @@index([workType])
   @@index([artistName])
   @@index([retailerExclusive])
+  @@index([gpExclusive])
   @@map("works")
 }
 

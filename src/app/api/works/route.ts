@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const workType = searchParams.get("workType") as WorkType | null;
   const orientation = searchParams.get("orientation") as Orientation | null;
   const artist = searchParams.get("artist") || "";
+  const gpExclusive = searchParams.get("gpExclusive");
   const statusParam = searchParams.get("status");
   const status = statusParam === "all" ? undefined : ((statusParam as WorkStatus) || "active");
 
@@ -33,6 +34,11 @@ export async function GET(request: NextRequest) {
   // Filter by artist
   if (artist) {
     where.artistName = { contains: artist, mode: "insensitive" };
+  }
+
+  // Filter by GP exclusive
+  if (gpExclusive === "true") {
+    where.gpExclusive = true;
   }
 
   // Keyword search across tags, title, and artist
@@ -63,10 +69,14 @@ export async function GET(request: NextRequest) {
           workType: true,
           orientation: true,
           dimensionsInches: true,
+          maxPrintInches: true,
+          sourceType: true,
+          sourceLabel: true,
           imageUrlThumbnail: true,
           imageUrlPreview: true,
           aiTagsHero: true,
           retailerExclusive: true,
+          gpExclusive: true,
           dominantColors: true,
           status: true,
         },

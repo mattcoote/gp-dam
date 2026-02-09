@@ -119,26 +119,18 @@ export default function SharedSelectionPage() {
 
       {/* Grid */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
           {selection.items.map((item) => (
             <div
               key={item.id}
               className="group cursor-pointer"
               onClick={() => setSelectedWork(item)}
             >
-              <div
-                className={`relative rounded-xl overflow-hidden bg-gray-100 ${
-                  item.work.orientation === "landscape"
-                    ? "aspect-[4/3]"
-                    : item.work.orientation === "square"
-                    ? "aspect-square"
-                    : "aspect-[3/4]"
-                }`}
-              >
+              <div className="relative rounded-xl overflow-hidden bg-gray-100">
                 <img
                   src={item.work.imageUrlPreview || item.work.imageUrlThumbnail || ""}
                   alt={item.work.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-auto block group-hover:scale-105 transition-transform duration-500"
                 />
                 {item.work.retailerExclusive && (
                   <div className="absolute top-3 right-3 px-2 py-1 bg-amber-500/90 text-white text-xs font-medium rounded-full backdrop-blur-sm">
