@@ -1,6 +1,6 @@
 # GP DAM - Project Status
 
-## Last Updated: Feb 8, 2026 (Session 4)
+## Last Updated: Feb 9, 2026 (Session 4)
 
 ---
 
@@ -64,21 +64,36 @@ A Digital Asset Management system for **General Public** (art print company), re
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-cd /Users/matthewcoote/Claude/gp-dam
+# 1. Clone/copy the repo
+cd gp-dam
+
+# 2. Install dependencies
 npm install
 
-# 2. Generate Prisma client
+# 3. Set up environment
+cp .env.example .env
+# Fill in .env with real values (see Environment Variables section below)
+
+# 4. Generate Prisma client
 npx prisma generate
 
-# 3. Start dev server
-npx next dev -p 3000
+# 5. Start dev server
+npx next dev --turbopack -p 3000
 
-# 4. Open in browser
+# 6. Open in browser
 open http://localhost:3000
 ```
 
 **Admin:** http://localhost:3000/admin (password: set via `ADMIN_PASSWORD` env var)
+
+### New Machine Setup
+
+1. Copy the entire `gp-dam/` directory (and parent `CLAUDE.md`) to the new machine
+2. Copy your `.env` file separately (it's gitignored — contains secrets)
+3. Run `npm install` → `npx prisma generate` → `npx next dev --turbopack`
+4. The database (Neon) and S3 bucket are cloud-hosted, so no local DB setup needed
+5. For Vercel deploys: run `vercel login` then `vercel link` to reconnect to the project
+6. If the DB connection hangs (cold start), restart the dev server and hit `/api/works?limit=1`
 
 ---
 
@@ -135,7 +150,7 @@ All configured in `.env` locally and on Vercel:
 
 **To redeploy:**
 ```bash
-cd /Users/matthewcoote/Claude/gp-dam
+cd gp-dam
 vercel --prod
 ```
 
@@ -250,6 +265,9 @@ gp-dam/
 │   │   └── next-auth.d.ts # Auth type extensions
 │   └── generated/
 │       └── prisma/        # Auto-generated Prisma client
+├── scripts/
+│   └── generate-csv-template.mjs  # Generates GP_DAM_Import_Template.xlsx
+├── GP_DAM_Import_Template.xlsx    # Excel template for CSV bulk import
 ├── .env                   # Environment variables (DO NOT COMMIT)
 ├── .env.example           # Template for env vars
 ├── .gitignore
@@ -315,17 +333,16 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 ## What's Next
 
 ### Immediate
-1. **Import full catalog** with real production images
-2. **Deploy latest changes** to Vercel (`vercel --prod`)
+1. **Import full catalog** with real production images + CSV
+2. **Custom domain** — add in Vercel dashboard (Settings > Domains)
 
 ### Soon
-3. **Custom domain** — add in Vercel dashboard (Settings > Domains)
-4. **Full catalog import** — prepare CSV for all works
+3. **Date-range filter** — `createdAt` is tracked on all works, ready for UI filter
+4. **Google/Microsoft OAuth** for team login
 
 ### Later
-5. **Google/Microsoft OAuth** for team login
-6. **CloudFront CDN** for faster image delivery
-7. **Advanced search** — boolean operators, semantic similarity
+5. **CloudFront CDN** for faster image delivery
+6. **Advanced search** — boolean operators, semantic similarity
 
 ---
 
