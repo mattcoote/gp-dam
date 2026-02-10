@@ -642,7 +642,7 @@ function HomeContent() {
           {/* Desktop sidebar */}
           {sidebarOpen && (
             <aside className="hidden md:block w-[260px] flex-shrink-0">
-              <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-hidden flex flex-col">
+              <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
                 <FilterSidebar
                   filters={filters}
                   setFilters={setFilters}
