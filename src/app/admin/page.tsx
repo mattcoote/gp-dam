@@ -22,6 +22,9 @@ import {
   AlertTriangle,
   SkipForward,
   RefreshCw,
+  CheckSquare,
+  Square,
+  MinusSquare,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -781,6 +784,8 @@ export default function AdminPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [editingWork, setEditingWork] = useState<Work | null>(null);
+  const [selectedWorks, setSelectedWorks] = useState<Set<string>>(new Set());
+  const [bulkActionInProgress, setBulkActionInProgress] = useState<string | null>(null);
 
   // Retag state
   const [retagging, setRetagging] = useState(false);
@@ -944,22 +949,22 @@ export default function AdminPage() {
     }
   }, [authenticated, activeTab, fetchWorks]);
 
-  const handleRetag = async () => {
-    if (!confirm(`Re-tag all ${works.length} works with enhanced AI prompts? This will update tags, embeddings, and may change work types (e.g. detecting photography). This can take several minutes.`)) return;
+  const handleRetag = async (ids?: string[]) => {
+    const targetIds = ids || works.map((w) => w.id);
+    const count = targetIds.length;
+    if (!confirm(`Re-tag ${count} work${count !== 1 ? "s" : ""} with enhanced AI prompts? This will update tags, embeddings, and may change work types. This can take several minutes.`)) return;
     setRetagging(true);
     setRetagProgress("Starting re-tag...");
     setRetagResults(null);
 
-    // Process in chunks of 10 to avoid timeouts
-    const allIds = works.map((w) => w.id);
     const chunkSize = 5;
     let totalSuccess = 0;
     let totalFail = 0;
     const allTypeChanges: { id: string; title: string; newType: string }[] = [];
 
-    for (let i = 0; i < allIds.length; i += chunkSize) {
-      const chunk = allIds.slice(i, i + chunkSize);
-      setRetagProgress(`Re-tagging works ${i + 1}–${Math.min(i + chunkSize, allIds.length)} of ${allIds.length}...`);
+    for (let i = 0; i < targetIds.length; i += chunkSize) {
+      const chunk = targetIds.slice(i, i + chunkSize);
+      setRetagProgress(`Re-tagging works ${i + 1}–${Math.min(i + chunkSize, targetIds.length)} of ${targetIds.length}...`);
       try {
         const res = await fetch("/api/works/retag", {
           method: "POST",
@@ -983,8 +988,91 @@ export default function AdminPage() {
     });
     setRetagProgress("");
     setRetagging(false);
-    fetchWorks(); // Refresh the list
+    setSelectedWorks(new Set());
+    fetchWorks();
   };
+
+  // Selection helpers
+  const toggleSelectWork = (workId: string) => {
+    setSelectedWorks((prev) => {
+      const next = new Set(prev);
+      if (next.has(workId)) next.delete(workId);
+      else next.add(workId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedWorks.size === works.length) {
+      setSelectedWorks(new Set());
+    } else {
+      setSelectedWorks(new Set(works.map((w) => w.id)));
+    }
+  };
+
+  // Bulk actions
+  async function bulkArchive() {
+    const ids = [...selectedWorks];
+    if (!confirm(`Archive ${ids.length} selected work${ids.length !== 1 ? "s" : ""}?`)) return;
+    setBulkActionInProgress("archive");
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/works/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "archived" }),
+          })
+        )
+      );
+      setSelectedWorks(new Set());
+      fetchWorks();
+    } catch {
+      alert("Some works failed to archive");
+    }
+    setBulkActionInProgress(null);
+  }
+
+  async function bulkRestore() {
+    const ids = [...selectedWorks];
+    if (!confirm(`Restore ${ids.length} selected work${ids.length !== 1 ? "s" : ""} to active?`)) return;
+    setBulkActionInProgress("restore");
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/works/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "active" }),
+          })
+        )
+      );
+      setSelectedWorks(new Set());
+      fetchWorks();
+    } catch {
+      alert("Some works failed to restore");
+    }
+    setBulkActionInProgress(null);
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedWorks];
+    if (!confirm(`Permanently delete ${ids.length} selected work${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    if (!confirm(`Are you sure? This will permanently delete ${ids.length} work${ids.length !== 1 ? "s" : ""} and their images.`)) return;
+    setBulkActionInProgress("delete");
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/works/${id}`, { method: "DELETE" })
+        )
+      );
+      setSelectedWorks(new Set());
+      fetchWorks();
+    } catch {
+      alert("Some works failed to delete");
+    }
+    setBulkActionInProgress(null);
+  }
 
   async function openEditModal(workId: string) {
     try {
@@ -1645,19 +1733,9 @@ export default function AdminPage() {
                   Edit, archive, or remove works from the catalog.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {works.length} works
-                </span>
-                <button
-                  onClick={handleRetag}
-                  disabled={retagging || works.length === 0}
-                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${retagging ? "animate-spin" : ""}`} />
-                  {retagging ? "Re-tagging..." : "Re-tag All"}
-                </button>
-              </div>
+              <span className="text-sm text-muted-foreground">
+                {works.length} works
+              </span>
             </div>
 
             {/* Retag progress/results */}
@@ -1690,7 +1768,7 @@ export default function AdminPage() {
             )}
 
             {/* Search + Filter */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-3 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -1713,6 +1791,67 @@ export default function AdminPage() {
               </select>
             </div>
 
+            {/* Bulk action bar */}
+            {selectedWorks.size > 0 && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-foreground/20 bg-muted/50 px-4 py-2.5">
+                <span className="text-sm font-medium mr-2">
+                  {selectedWorks.size} selected
+                </span>
+                <div className="h-4 w-px bg-border" />
+                <button
+                  onClick={() => handleRetag([...selectedWorks])}
+                  disabled={retagging || !!bulkActionInProgress}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-white transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${retagging ? "animate-spin" : ""}`} />
+                  Re-tag
+                </button>
+                <button
+                  onClick={bulkArchive}
+                  disabled={retagging || !!bulkActionInProgress}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-amber-50 text-amber-700 transition-colors disabled:opacity-50"
+                >
+                  {bulkActionInProgress === "archive" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Archive className="w-3.5 h-3.5" />
+                  )}
+                  Archive
+                </button>
+                <button
+                  onClick={bulkRestore}
+                  disabled={retagging || !!bulkActionInProgress}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-green-50 text-green-700 transition-colors disabled:opacity-50"
+                >
+                  {bulkActionInProgress === "restore" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  )}
+                  Restore
+                </button>
+                <button
+                  onClick={bulkDelete}
+                  disabled={retagging || !!bulkActionInProgress}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-red-50 text-red-600 transition-colors disabled:opacity-50"
+                >
+                  {bulkActionInProgress === "delete" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  Delete
+                </button>
+                <div className="flex-1" />
+                <button
+                  onClick={() => setSelectedWorks(new Set())}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+
             {/* Works List */}
             {worksLoading ? (
               <div className="flex justify-center py-12">
@@ -1727,6 +1866,21 @@ export default function AdminPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
+                      <th className="p-3 w-10">
+                        <button
+                          onClick={toggleSelectAll}
+                          className="text-gray-400 hover:text-foreground transition-colors"
+                          title={selectedWorks.size === works.length ? "Deselect all" : "Select all"}
+                        >
+                          {selectedWorks.size === 0 ? (
+                            <Square className="w-4 h-4" />
+                          ) : selectedWorks.size === works.length ? (
+                            <CheckSquare className="w-4 h-4" />
+                          ) : (
+                            <MinusSquare className="w-4 h-4" />
+                          )}
+                        </button>
+                      </th>
                       <th className="text-left p-3 font-medium w-16"></th>
                       <th className="text-left p-3 font-medium">Title</th>
                       <th className="text-left p-3 font-medium">Artist</th>
@@ -1742,8 +1896,20 @@ export default function AdminPage() {
                         key={work.id}
                         className={`border-b border-border/50 last:border-0 ${
                           work.status === "archived" ? "opacity-50" : ""
-                        }`}
+                        } ${selectedWorks.has(work.id) ? "bg-blue-50/50" : ""}`}
                       >
+                        <td className="p-3">
+                          <button
+                            onClick={() => toggleSelectWork(work.id)}
+                            className={`transition-colors ${selectedWorks.has(work.id) ? "text-blue-600" : "text-gray-300 hover:text-gray-500"}`}
+                          >
+                            {selectedWorks.has(work.id) ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+                          </button>
+                        </td>
                         <td className="p-3">
                           <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
                             {work.imageUrlThumbnail && (
