@@ -32,7 +32,7 @@ A Digital Asset Management system for **General Public** (art print company), re
   - Min short side slider filter (0-36") across all museum grids
 - **Source tracking** — `sourceType` enum + `sourceLabel` human-readable name
 - **Max print size** — computed from actual downloaded image at 300 DPI, displayed in DAM viewer + search results
-- **GP SKU generation** — auto-generated for GP originals only, skipped for public domain imports
+- **GP SKU** — optional, manually assigned (no auto-generation)
 - **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards, quick filter bubble on homepage
 - **Source image access** — direct links to full-res museum source images (opens in new tab) on search cards + download from S3 on works table
 - **Excel import template** — generated via `scripts/generate-csv-template.mjs` with validation dropdowns, example rows, and instructions sheet
@@ -300,7 +300,7 @@ Admin > Bulk Import tab. Upload a ZIP of images with an optional CSV for metadat
 | title | Yes | Coastal Dawn |
 | artist_name | Yes | Sarah Chen |
 | work_type | Yes | synograph / work_on_paper / work_on_canvas / photography / reductive |
-| gp_sku | No | GP2006310 (auto-generated if blank for gp_original, skipped for public domain) |
+| gp_sku | No | GP2006310 (optional, leave blank if not assigned) |
 | dimensions | No | 24x36 or 24x36x1.5 (inches) |
 | retailer_exclusive | No | RH, CB2, Rejuvenation, Anthropologie |
 | artist_exclusive_to | No | RH |

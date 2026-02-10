@@ -22,7 +22,7 @@ async function generateTemplate() {
     { header: "artist_name", key: "artist_name", width: 24, required: true, note: "Artist display name" },
     { header: "work_type", key: "work_type", width: 18, required: true, note: "synograph, work_on_paper, work_on_canvas, photography, reductive" },
     { header: "gp_exclusive", key: "gp_exclusive", width: 14, required: false, note: "yes or no" },
-    { header: "gp_sku", key: "gp_sku", width: 14, required: false, note: "Auto-generated if blank (GP originals only)" },
+    { header: "gp_sku", key: "gp_sku", width: 14, required: false, note: "Optional — leave blank if not assigned" },
     { header: "dimensions", key: "dimensions", width: 16, required: false, note: "WxH or WxHxD in inches (e.g. 24x36 or 24x36x1.5)" },
     { header: "retailer_exclusive", key: "retailer_exclusive", width: 20, required: false, note: "RH, CB2, Rejuvenation, Anthropologie, etc." },
     { header: "artist_exclusive_to", key: "artist_exclusive_to", width: 20, required: false, note: "Retailer this artist is exclusive to" },
@@ -214,7 +214,7 @@ async function generateTemplate() {
     ["NOTES", ""],
     ["", "If you upload images WITHOUT a CSV, titles are derived from filenames (e.g. sunset-over-hills.jpg becomes Sunset Over Hills)"],
     ["", "The example rows (gray text) in the template should be deleted or overwritten before importing"],
-    ["", "GP SKU is auto-generated for gp_original works only; public domain imports skip SKU generation"],
+    ["", "GP SKU is optional — leave blank if not yet assigned"],
     ["", "AI tags and search embeddings are generated automatically during import"],
     ["", "Max print size is computed from the actual image pixels at 300 DPI if not provided in the CSV"],
   ];

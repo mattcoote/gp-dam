@@ -1916,7 +1916,7 @@ export default function AdminPage() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     GP SKU{" "}
                     <span className="font-normal text-gray-400">
-                      (auto-generated if blank)
+                      (optional)
                     </span>
                   </label>
                   <input
@@ -2113,7 +2113,7 @@ export default function AdminPage() {
                     <tr className="border-b border-border/50">
                       <td className="py-1.5 pr-4 font-mono">gp_sku</td>
                       <td className="py-1.5 pr-4">No</td>
-                      <td className="py-1.5">GP2006310 (auto-generated if blank)</td>
+                      <td className="py-1.5">GP2006310 (optional)</td>
                     </tr>
                     <tr className="border-b border-border/50">
                       <td className="py-1.5 pr-4 font-mono">filename</td>

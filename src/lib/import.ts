@@ -124,7 +124,7 @@ export async function processWorkImport(
   const workId = uuidv4();
   const sourceType = (row.source_type || "gp_original").trim().toLowerCase();
   const isPublicDomain = sourceType !== "gp_original";
-  const gpSku = row.gp_sku?.trim() || (isPublicDomain ? null : await generateGpSku());
+  const gpSku = row.gp_sku?.trim() || null;
   const dims = parseDimensions(row.dimensions);
   const orientation = determineOrientation(dims);
   const gpExclusive = ["yes", "true", "1"].includes(
