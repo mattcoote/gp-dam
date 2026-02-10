@@ -37,7 +37,6 @@ export default function WorkCard({
   const { addItem, removeItem, isInCart } = useCart();
 
   const dims = work.dimensionsInches as { width: number; height: number } | null;
-  const maxPrint = work.maxPrintInches as { width: number; height: number } | null;
   const inCart = isInCart(work.id);
 
   function handleCartToggle(e: React.MouseEvent) {
@@ -125,12 +124,7 @@ export default function WorkCard({
           {dims.width} x {dims.height}&quot;
         </p>
       )}
-      {!compact && maxPrint && (
-        <p className="text-[10px] text-muted-foreground">
-          Max print: {maxPrint.width}&quot; &times; {maxPrint.height}&quot;
-        </p>
-      )}
-      {!compact && work.availableSizes && work.availableSizes.length > 0 && (
+{!compact && work.availableSizes && work.availableSizes.length > 0 && (
         <p className="text-[10px] text-muted-foreground">
           Sizes: {work.availableSizes.join(", ")}
         </p>
