@@ -181,12 +181,6 @@ export default function WorkDetailModal({
                 </div>
               )}
 
-              {/* Position indicator */}
-              {canNavigate && currentIndex >= 0 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1 rounded-full">
-                  {currentIndex + 1} / {workIds.length}
-                </div>
-              )}
             </div>
 
             {/* Details */}
