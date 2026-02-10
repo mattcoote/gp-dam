@@ -24,12 +24,14 @@ interface WorkCardProps {
   };
   onSelect?: (work: WorkCardProps["work"]) => void;
   compact?: boolean;
+  showBadges?: boolean;
 }
 
 export default function WorkCard({
   work,
   onSelect,
   compact = false,
+  showBadges = true,
 }: WorkCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const { addItem, removeItem, isInCart } = useCart();
@@ -94,18 +96,20 @@ export default function WorkCard({
         </div>
 
         {/* Badges */}
-        <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-          {work.gpExclusive && (
-            <div className="rounded-full bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white uppercase tracking-wider">
-              GP Exclusive
-            </div>
-          )}
-          {work.retailerExclusive && (
-            <div className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 uppercase tracking-wider">
-              {work.retailerExclusive}
-            </div>
-          )}
-        </div>
+        {showBadges && (
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+            {work.gpExclusive && (
+              <div className="rounded-full bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white uppercase tracking-wider">
+                GP Exclusive
+              </div>
+            )}
+            {work.retailerExclusive && (
+              <div className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 uppercase tracking-wider">
+                {work.retailerExclusive}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />

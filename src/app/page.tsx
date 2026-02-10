@@ -10,6 +10,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronRight,
+  Tag,
 } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
@@ -331,6 +332,7 @@ function HomeContent() {
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [thumbSize, setThumbSize] = useState<"large" | "small">("large");
+  const [showBadges, setShowBadges] = useState(true);
   const [cartOpen, setCartOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -611,6 +613,21 @@ function HomeContent() {
             )}
           </button>
 
+          <div className="flex items-center gap-2">
+          {/* Badge visibility toggle */}
+          <button
+            onClick={() => setShowBadges(!showBadges)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              showBadges
+                ? "border-foreground bg-foreground text-white"
+                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+            }`}
+            title={showBadges ? "Hide badges" : "Show badges"}
+          >
+            <Tag className="w-4 h-4" />
+            <span className="hidden sm:inline">Labels</span>
+          </button>
+
           {/* Thumbnail size toggle */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
@@ -635,6 +652,7 @@ function HomeContent() {
             >
               <Grid3X3 className="w-4 h-4" />
             </button>
+          </div>
           </div>
         </div>
 
@@ -706,6 +724,7 @@ function HomeContent() {
                     key={work.id}
                     work={work}
                     compact={thumbSize === "small"}
+                    showBadges={showBadges}
                     onSelect={(w) => setSelectedWorkId(w.id)}
                   />
                 ))}
