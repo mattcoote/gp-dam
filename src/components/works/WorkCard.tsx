@@ -20,6 +20,7 @@ interface WorkCardProps {
     aiTagsHero: string[];
     retailerExclusive: string | null;
     gpExclusive?: boolean;
+    availableSizes?: string[];
   };
   onSelect?: (work: WorkCardProps["work"]) => void;
   compact?: boolean;
@@ -123,6 +124,11 @@ export default function WorkCard({
       {!compact && maxPrint && (
         <p className="text-[10px] text-muted-foreground">
           Max print: {maxPrint.width}&quot; &times; {maxPrint.height}&quot;
+        </p>
+      )}
+      {!compact && work.availableSizes && work.availableSizes.length > 0 && (
+        <p className="text-[10px] text-muted-foreground">
+          Sizes: {work.availableSizes.join(", ")}
         </p>
       )}
       {!compact && work.sourceLabel && (

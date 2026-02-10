@@ -16,6 +16,7 @@ interface Work {
   imageUrlPreview: string;
   aiTagsHero: string[];
   retailerExclusive: string | null;
+  availableSizes: string[];
 }
 
 interface SelectionItem {
@@ -217,6 +218,22 @@ export default function SharedSelectionPage() {
                         {selectedWork.work.dimensionsInches.width}&quot; &times;{" "}
                         {selectedWork.work.dimensionsInches.height}&quot;
                       </span>
+                    </div>
+                  )}
+
+                  {selectedWork.work.availableSizes && selectedWork.work.availableSizes.length > 0 && (
+                    <div className="flex items-start gap-4 text-sm">
+                      <span className="text-gray-400 w-24">Sizes</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedWork.work.availableSizes.map((size) => (
+                          <span
+                            key={size}
+                            className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full"
+                          >
+                            {size}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 

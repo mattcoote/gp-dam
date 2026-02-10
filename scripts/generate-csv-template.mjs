@@ -30,6 +30,7 @@ async function generateTemplate() {
     { header: "source", key: "source", width: 22, required: false, note: "Human-readable label: General Public, Visual Contrast, etc." },
     { header: "max_print_width", key: "max_print_width", width: 16, required: false, note: "Max print width in inches (auto-computed from image if blank)" },
     { header: "max_print_height", key: "max_print_height", width: 16, required: false, note: "Max print height in inches (auto-computed from image if blank)" },
+    { header: "available_sizes", key: "available_sizes", width: 24, required: false, note: "Comma-separated print sizes (e.g. 8x10, 11x14, 24x36)" },
   ];
 
   ws.columns = columns.map((c) => ({
@@ -93,6 +94,7 @@ async function generateTemplate() {
       source: "General Public",
       max_print_width: "",
       max_print_height: "",
+      available_sizes: "8x10, 11x14, 24x36",
     },
     {
       filename: "urban-geometry-ii.jpg",
@@ -108,6 +110,7 @@ async function generateTemplate() {
       source: "Visual Contrast",
       max_print_width: "",
       max_print_height: "",
+      available_sizes: "16x20, 24x36",
     },
     {
       filename: "botanical-study-no5.jpg",
@@ -123,6 +126,7 @@ async function generateTemplate() {
       source: "General Public",
       max_print_width: "",
       max_print_height: "",
+      available_sizes: "8x10, 11x14",
     },
   ];
 
@@ -205,6 +209,7 @@ async function generateTemplate() {
     ["source", "Human-readable source label (e.g. General Public, Visual Contrast)"],
     ["max_print_width", "Max printable width in inches. Auto-computed from image at 300 DPI if left blank."],
     ["max_print_height", "Max printable height in inches. Auto-computed from image at 300 DPI if left blank."],
+    ["available_sizes", "Comma-separated list of available print sizes (e.g. 8x10, 11x14, 24x36)"],
     ["", ""],
     ["NOTES", ""],
     ["", "If you upload images WITHOUT a CSV, titles are derived from filenames (e.g. sunset-over-hills.jpg becomes Sunset Over Hills)"],

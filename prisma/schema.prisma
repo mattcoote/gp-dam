@@ -132,6 +132,7 @@ model Work {
   artistExclusiveTo String?    @map("artist_exclusive_to")
   gpExclusive       Boolean    @default(false) @map("gp_exclusive") // true = GP exclusive, not available through other retailers
   customResizeAvailable Boolean @default(true) @map("custom_resize_available")
+  availableSizes        String[] @default([]) @map("available_sizes") // e.g. ["8x10", "11x14", "24x36"]
 
   // Images (S3 URLs)
   imageUrlThumbnail String?  @map("image_url_thumbnail")

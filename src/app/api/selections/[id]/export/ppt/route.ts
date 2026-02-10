@@ -171,6 +171,9 @@ export async function GET(
       if (dims) metaLines.push(`Dimensions: ${dims.width}" x ${dims.height}"`);
       if (work.retailerExclusive)
         metaLines.push(`Exclusive: ${work.retailerExclusive}`);
+      const availableSizes = work.availableSizes as string[] | null;
+      if (availableSizes && availableSizes.length > 0)
+        metaLines.push(`Sizes: ${availableSizes.join(", ")}`);
 
       slide.addText(metaLines.join("\n"), {
         x: detailX,
@@ -184,7 +187,8 @@ export async function GET(
 
       // Tags
       if (work.aiTagsHero.length > 0) {
-        const tagsY = work.retailerExclusive ? 4.2 : 3.8;
+        const hasExtraLines = work.retailerExclusive || (availableSizes && availableSizes.length > 0);
+        const tagsY = hasExtraLines ? 4.2 : 3.8;
         slide.addText("Tags", {
           x: detailX,
           y: tagsY,

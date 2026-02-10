@@ -69,6 +69,7 @@ interface Work {
   aiTagsHero: string[];
   aiTagsHidden: string[];
   customResizeAvailable: boolean;
+  availableSizes: string[];
   status: string;
   createdAt: string;
 }
@@ -197,6 +198,7 @@ function EditWorkModal({
     dimensionsWidth: work.dimensionsInches?.width?.toString() || "",
     dimensionsHeight: work.dimensionsInches?.height?.toString() || "",
     customResizeAvailable: work.customResizeAvailable,
+    availableSizes: (work.availableSizes || []).join(", "),
     aiTagsHero: work.aiTagsHero.join(", "),
     aiTagsHidden: (work.aiTagsHidden || []).join(", "),
   });
@@ -220,6 +222,10 @@ function EditWorkModal({
     const height = parseFloat(form.dimensionsHeight);
     const dims =
       !isNaN(width) && !isNaN(height) ? { width, height } : null;
+    const availableSizes = form.availableSizes
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
 
     try {
       const res = await fetch(`/api/works/${work.id}`, {
@@ -234,6 +240,7 @@ function EditWorkModal({
           artistExclusiveTo: form.artistExclusiveTo || null,
           dimensionsInches: dims,
           customResizeAvailable: form.customResizeAvailable,
+          availableSizes,
           aiTagsHero: heroTags,
           aiTagsHidden: hiddenTags,
         }),
@@ -402,6 +409,23 @@ function EditWorkModal({
             <label htmlFor="customResize" className="text-sm text-gray-600">
               Custom sizing available
             </label>
+          </div>
+
+          {/* Available Sizes */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Available Sizes{" "}
+              <span className="font-normal text-gray-400">
+                (comma-separated, e.g. 8x10, 11x14, 24x36)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={form.availableSizes}
+              onChange={(e) => setForm({ ...form, availableSizes: e.target.value })}
+              placeholder="8x10, 11x14, 24x36..."
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+            />
           </div>
 
           {/* Hero Tags */}
@@ -715,6 +739,7 @@ export default function AdminPage() {
     artistExclusiveTo: "",
     source: "",
     gpExclusive: false,
+    availableSizes: "",
   });
   const [singleSkipAi, setSingleSkipAi] = useState(false);
   const [singleUploading, setSingleUploading] = useState(false);
@@ -1000,7 +1025,7 @@ export default function AdminPage() {
     setSingleResult(null);
 
     // Build a CSV string with one row
-    const csvHeader = "filename,title,artist_name,work_type,gp_sku,dimensions,retailer_exclusive,artist_exclusive_to,source,gp_exclusive";
+    const csvHeader = "filename,title,artist_name,work_type,gp_sku,dimensions,retailer_exclusive,artist_exclusive_to,source,gp_exclusive,available_sizes";
     const csvRow = [
       singleImage.name,
       singleForm.title.trim(),
@@ -1012,6 +1037,7 @@ export default function AdminPage() {
       singleForm.artistExclusiveTo.trim(),
       singleForm.source.trim(),
       singleForm.gpExclusive ? "yes" : "no",
+      singleForm.availableSizes.trim(),
     ]
       .map((v) => `"${v.replace(/"/g, '""')}"`)
       .join(",");
@@ -1054,6 +1080,7 @@ export default function AdminPage() {
           artistExclusiveTo: "",
           source: "",
           gpExclusive: false,
+          availableSizes: "",
         });
       } else {
         const err = data.results?.[0]?.error || data.error || "Import failed";
@@ -1975,6 +2002,25 @@ export default function AdminPage() {
                   />
                 </button>
                 <span className="text-sm text-gray-700 font-medium">GP Exclusive</span>
+              </div>
+
+              {/* Available Sizes */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Available Sizes{" "}
+                  <span className="font-normal text-gray-400">
+                    (comma-separated)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={singleForm.availableSizes}
+                  onChange={(e) =>
+                    setSingleForm({ ...singleForm, availableSizes: e.target.value })
+                  }
+                  placeholder="8x10, 11x14, 24x36"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                />
               </div>
 
               {/* Skip AI */}

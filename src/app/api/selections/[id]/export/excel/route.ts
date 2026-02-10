@@ -61,6 +61,7 @@ export async function GET(
       { header: "Dimensions", key: "dimensions", width: 15 },
       { header: "Orientation", key: "orientation", width: 12 },
       { header: "Exclusive To", key: "exclusive", width: 15 },
+      { header: "Available Sizes", key: "availableSizes", width: 24 },
       { header: "Tags", key: "tags", width: 40 },
       { header: "Note", key: "note", width: 30 },
       { header: "Preview URL", key: "previewUrl", width: 50 },
@@ -92,6 +93,7 @@ export async function GET(
         dimensions: dims ? `${dims.width}" × ${dims.height}"` : "",
         orientation: work.orientation || "",
         exclusive: work.retailerExclusive || "",
+        availableSizes: (work.availableSizes as string[] || []).join(", "),
         tags: work.aiTagsHero.join(", "),
         note: item.notes || "",
         previewUrl: work.imageUrlPreview || "",
@@ -137,7 +139,7 @@ export async function GET(
     // Auto-filter
     sheet.autoFilter = {
       from: "A1",
-      to: `K${selection.items.length + 1}`,
+      to: `L${selection.items.length + 1}`,
     };
 
     // Freeze header row

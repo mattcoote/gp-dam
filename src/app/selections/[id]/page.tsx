@@ -27,6 +27,7 @@ interface Work {
   imageUrlPreview: string;
   aiTagsHero: string[];
   retailerExclusive: string | null;
+  availableSizes: string[];
 }
 
 interface SelectionItem {
@@ -376,6 +377,11 @@ export default function SelectionDetailPage() {
                           <span className="text-xs text-gray-400">
                             {item.work.dimensionsInches.width}&quot; &times;{" "}
                             {item.work.dimensionsInches.height}&quot;
+                          </span>
+                        )}
+                        {item.work.availableSizes && item.work.availableSizes.length > 0 && (
+                          <span className="text-xs text-gray-400">
+                            Sizes: {item.work.availableSizes.join(", ")}
                           </span>
                         )}
                         {item.work.retailerExclusive && (

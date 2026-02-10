@@ -133,6 +133,10 @@ export async function GET(
       if (work.retailerExclusive) {
         meta.push(["Exclusive", `${work.retailerExclusive}`]);
       }
+      const availableSizes = work.availableSizes as string[] | null;
+      if (availableSizes && availableSizes.length > 0) {
+        meta.push(["Available Sizes", availableSizes.join(", ")]);
+      }
 
       doc.fontSize(10);
       for (const [label, value] of meta) {

@@ -28,6 +28,7 @@ export async function GET(
         dominantColors: true,
         retailerExclusive: true,
         customResizeAvailable: true,
+        availableSizes: true,
         status: true,
         createdAt: true,
       },
@@ -69,6 +70,7 @@ export async function PATCH(
       aiTagsHero,
       aiTagsHidden,
       customResizeAvailable,
+      availableSizes,
     } = body;
 
     const updateData: Record<string, unknown> = {};
@@ -88,6 +90,8 @@ export async function PATCH(
     if (aiTagsHidden !== undefined) updateData.aiTagsHidden = aiTagsHidden;
     if (customResizeAvailable !== undefined)
       updateData.customResizeAvailable = customResizeAvailable;
+    if (availableSizes !== undefined)
+      updateData.availableSizes = availableSizes;
 
     const work = await prisma.work.update({
       where: { id },

@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
           aiTagsHero: true,
           retailerExclusive: true,
           gpExclusive: true,
+          availableSizes: true,
           dominantColors: true,
           status: true,
           createdAt: true,

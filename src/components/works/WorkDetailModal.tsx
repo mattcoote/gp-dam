@@ -20,6 +20,7 @@ interface WorkDetail {
   aiTagsHero: string[];
   retailerExclusive: string | null;
   customResizeAvailable: boolean;
+  availableSizes: string[];
 }
 
 interface WorkDetailModalProps {
@@ -245,6 +246,23 @@ export default function WorkDetailModal({
                   </p>
                 )}
               </div>
+
+              {/* Available Sizes */}
+              {work.availableSizes && work.availableSizes.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Available Sizes</p>
+                  <div className="flex flex-wrap gap-1">
+                    {work.availableSizes.map((size) => (
+                      <span
+                        key={size}
+                        className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
+                      >
+                        {size}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Tags */}
               <div>

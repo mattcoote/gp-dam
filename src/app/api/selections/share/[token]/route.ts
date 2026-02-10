@@ -27,6 +27,7 @@ export async function GET(
                 imageUrlPreview: true,
                 aiTagsHero: true,
                 retailerExclusive: true,
+                availableSizes: true,
                 dominantColors: true,
               },
             },

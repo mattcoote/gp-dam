@@ -20,6 +20,7 @@ export interface CsvRow {
   max_print_width?: number; // Computed from source image pixels / 300 DPI
   max_print_height?: number;
   gp_exclusive?: string; // "yes"/"true"/"1" = GP exclusive
+  available_sizes?: string; // Comma-separated: "8x10, 11x14, 24x36"
 }
 
 export interface ImportStepLog {
@@ -75,6 +76,14 @@ function parseDimensions(
   };
 }
 
+function parseAvailableSizes(sizesStr: string | undefined): string[] {
+  if (!sizesStr) return [];
+  return sizesStr
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function determineOrientation(dims: {
   width: number;
   height: number;
@@ -121,6 +130,7 @@ export async function processWorkImport(
   const gpExclusive = ["yes", "true", "1"].includes(
     (row.gp_exclusive || "").trim().toLowerCase()
   );
+  const availableSizes = parseAvailableSizes(row.available_sizes);
 
   let maxPrintInches: { width: number; height: number } | null = null;
   if (row.max_print_width && row.max_print_height) {
@@ -315,14 +325,14 @@ export async function processWorkImport(
             retailer_exclusive, artist_exclusive_to, gp_exclusive,
             image_url_thumbnail, image_url_preview, image_url_source,
             ai_tags_hero, ai_tags_hidden, dominant_colors, embedding,
-            status, created_at, updated_at
+            available_sizes, status, created_at, updated_at
           ) VALUES (
             $1::uuid, $2, $3, $4, $5::"SourceType", $6, $7,
             $8::jsonb, $9::jsonb, $10::"Orientation", $11::"WorkType",
             $12, $13, $14,
             $15, $16, $17,
             $18::text[], $19::text[], $20::jsonb, $21::vector,
-            'active'::"WorkStatus", NOW(), NOW()
+            $22::text[], 'active'::"WorkStatus", NOW(), NOW()
           )`,
           workId,
           gpSku || null,
@@ -344,7 +354,8 @@ export async function processWorkImport(
           aiTagsHero,
           aiTagsHidden,
           JSON.stringify(dominantColors),
-          `[${embeddingVector.join(",")}]`
+          `[${embeddingVector.join(",")}]`,
+          availableSizes
         );
       } else {
         await prisma.work.create({
@@ -363,6 +374,7 @@ export async function processWorkImport(
             retailerExclusive: row.retailer_exclusive?.trim() || null,
             artistExclusiveTo: row.artist_exclusive_to?.trim() || null,
             gpExclusive,
+            availableSizes,
             imageUrlThumbnail,
             imageUrlPreview,
             imageUrlSource,
