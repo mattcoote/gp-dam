@@ -21,6 +21,7 @@ import {
   ChevronRight,
   AlertTriangle,
   SkipForward,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -781,6 +782,16 @@ export default function AdminPage() {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [editingWork, setEditingWork] = useState<Work | null>(null);
 
+  // Retag state
+  const [retagging, setRetagging] = useState(false);
+  const [retagProgress, setRetagProgress] = useState("");
+  const [retagResults, setRetagResults] = useState<{
+    message: string;
+    successCount: number;
+    failCount: number;
+    typeChanges: { id: string; title: string; newType: string }[];
+  } | null>(null);
+
   // Public domain museum sub-tab
   const [museumSource, setMuseumSource] = useState<MuseumSource>("rijksmuseum");
   const [minShortSide, setMinShortSide] = useState(0); // Minimum short side in inches for print filter
@@ -932,6 +943,48 @@ export default function AdminPage() {
       fetchWorks();
     }
   }, [authenticated, activeTab, fetchWorks]);
+
+  const handleRetag = async () => {
+    if (!confirm(`Re-tag all ${works.length} works with enhanced AI prompts? This will update tags, embeddings, and may change work types (e.g. detecting photography). This can take several minutes.`)) return;
+    setRetagging(true);
+    setRetagProgress("Starting re-tag...");
+    setRetagResults(null);
+
+    // Process in chunks of 10 to avoid timeouts
+    const allIds = works.map((w) => w.id);
+    const chunkSize = 5;
+    let totalSuccess = 0;
+    let totalFail = 0;
+    const allTypeChanges: { id: string; title: string; newType: string }[] = [];
+
+    for (let i = 0; i < allIds.length; i += chunkSize) {
+      const chunk = allIds.slice(i, i + chunkSize);
+      setRetagProgress(`Re-tagging works ${i + 1}–${Math.min(i + chunkSize, allIds.length)} of ${allIds.length}...`);
+      try {
+        const res = await fetch("/api/works/retag", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workIds: chunk, batchSize: 5 }),
+        });
+        const data = await res.json();
+        totalSuccess += data.successCount || 0;
+        totalFail += data.failCount || 0;
+        if (data.typeChanges) allTypeChanges.push(...data.typeChanges);
+      } catch {
+        totalFail += chunk.length;
+      }
+    }
+
+    setRetagResults({
+      message: `Re-tag complete: ${totalSuccess} succeeded, ${totalFail} failed`,
+      successCount: totalSuccess,
+      failCount: totalFail,
+      typeChanges: allTypeChanges,
+    });
+    setRetagProgress("");
+    setRetagging(false);
+    fetchWorks(); // Refresh the list
+  };
 
   async function openEditModal(workId: string) {
     try {
@@ -1592,10 +1645,49 @@ export default function AdminPage() {
                   Edit, archive, or remove works from the catalog.
                 </p>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {works.length} works
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {works.length} works
+                </span>
+                <button
+                  onClick={handleRetag}
+                  disabled={retagging || works.length === 0}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${retagging ? "animate-spin" : ""}`} />
+                  {retagging ? "Re-tagging..." : "Re-tag All"}
+                </button>
+              </div>
             </div>
+
+            {/* Retag progress/results */}
+            {retagProgress && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {retagProgress}
+              </div>
+            )}
+            {retagResults && (
+              <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${retagResults.failCount > 0 ? "bg-yellow-50 border-yellow-200 text-yellow-800" : "bg-green-50 border-green-200 text-green-800"}`}>
+                <p className="font-medium">{retagResults.message}</p>
+                {retagResults.typeChanges.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium mb-1">Work types auto-updated:</p>
+                    {retagResults.typeChanges.map((tc) => (
+                      <p key={tc.id} className="text-xs">
+                        &ldquo;{tc.title}&rdquo; → {tc.newType}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setRetagResults(null)}
+                  className="mt-2 text-xs underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             {/* Search + Filter */}
             <div className="flex gap-3 mb-6">
