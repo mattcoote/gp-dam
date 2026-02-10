@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Search, X, Grid3X3, Grid2X2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Search, X, Grid3X3, Grid2X2, Loader2, ChevronDown } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
 import { CartProvider } from "@/components/cart/CartContext";
 import CartIcon from "@/components/cart/CartIcon";
 import CartDrawer from "@/components/cart/CartDrawer";
+
+const PAGE_SIZE = 48;
 
 interface Work {
   id: string;
@@ -46,12 +48,25 @@ function HomeContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [artistFilter, setArtistFilter] = useState("");
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [thumbSize, setThumbSize] = useState<"large" | "small">("large");
   const [cartOpen, setCartOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [artists, setArtists] = useState<string[]>([]);
+
+  // Fetch distinct artists for filter dropdown
+  useEffect(() => {
+    fetch("/api/works/artists")
+      .then((res) => res.json())
+      .then((data) => setArtists(data.artists || []))
+      .catch(() => {});
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -59,13 +74,18 @@ function HomeContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchWorks = useCallback(async () => {
-    setLoading(true);
-    try {
+  const buildParams = useCallback(
+    (page: number) => {
       const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(PAGE_SIZE));
 
       if (debouncedSearch) {
         params.set("search", debouncedSearch);
+      }
+
+      if (artistFilter) {
+        params.set("artist", artistFilter);
       }
 
       // Apply active quick filter
@@ -83,6 +103,17 @@ function HomeContent() {
         }
       }
 
+      return params;
+    },
+    [debouncedSearch, activeFilter, artistFilter]
+  );
+
+  // Initial fetch (page 1) — resets when filters/search change
+  const fetchWorks = useCallback(async () => {
+    setLoading(true);
+    setCurrentPage(1);
+    try {
+      const params = buildParams(1);
       const res = await fetch(`/api/works?${params.toString()}`);
       const data = await res.json();
       setWorks(data.works || []);
@@ -92,15 +123,54 @@ function HomeContent() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, activeFilter]);
+  }, [buildParams]);
+
+  // Load more (next page) — appends to existing works
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !pagination || currentPage >= pagination.totalPages) return;
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    try {
+      const params = buildParams(nextPage);
+      const res = await fetch(`/api/works?${params.toString()}`);
+      const data = await res.json();
+      setWorks((prev) => [...prev, ...(data.works || [])]);
+      setPagination(data.pagination || null);
+      setCurrentPage(nextPage);
+    } catch (error) {
+      console.error("Failed to load more works:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, pagination, currentPage, buildParams]);
 
   useEffect(() => {
     fetchWorks();
   }, [fetchWorks]);
 
+  // Infinite scroll: IntersectionObserver on sentinel div
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "600px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
   const toggleFilter = (label: string) => {
     setActiveFilter((prev) => (prev === label ? null : label));
   };
+
+  const hasMore = pagination ? currentPage < pagination.totalPages : false;
 
   return (
     <div className="min-h-screen bg-white">
@@ -142,7 +212,7 @@ function HomeContent() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder='Search artwork... e.g. "jewel toned abstract landscapes"'
+            placeholder='Search by title, artist, style, mood... e.g. "Monet", "impressionism", "serene landscape"'
             className="w-full rounded-full border border-border bg-white py-3.5 pl-12 pr-10 text-base outline-none transition-colors focus:border-foreground placeholder:text-muted-foreground"
           />
           {searchQuery && (
@@ -170,6 +240,27 @@ function HomeContent() {
               {filter.label}
             </button>
           ))}
+
+          {/* Artist filter dropdown */}
+          <div className="relative">
+            <select
+              value={artistFilter}
+              onChange={(e) => setArtistFilter(e.target.value)}
+              className={`appearance-none rounded-full border px-4 py-1.5 pr-8 text-sm transition-colors cursor-pointer ${
+                artistFilter
+                  ? "border-foreground bg-foreground text-white"
+                  : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+              }`}
+            >
+              <option value="">Artist</option>
+              {artists.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" />
+          </div>
         </div>
       </section>
 
@@ -253,6 +344,27 @@ function HomeContent() {
             ))}
           </div>
         )}
+
+        {/* Infinite scroll sentinel + load more */}
+        {!loading && hasMore && (
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              Showing {works.length} of {pagination?.total} works
+            </p>
+            {loadingMore ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <button
+                onClick={loadMore}
+                className="rounded-full border border-border px-6 py-2 text-sm text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+              >
+                Load more
+              </button>
+            )}
+          </div>
+        )}
+        {/* Invisible sentinel for intersection observer */}
+        <div ref={sentinelRef} className="h-1" />
       </section>
 
       {/* Footer */}

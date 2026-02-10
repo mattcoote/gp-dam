@@ -267,13 +267,27 @@ export async function processWorkImport(
         const tags = await generateArtworkTags(dataUrl);
         aiTagsHero = tags.heroTags;
         aiTagsHidden = tags.hiddenTags;
+
+        // Auto-detect work type from AI medium detection (only override if default "reductive")
+        if (tags.medium && row.work_type.trim().toLowerCase() === "reductive") {
+          const mediumToWorkType: Record<string, string> = {
+            photograph: "photography",
+            drawing: "work_on_paper",
+            print: "work_on_paper",
+            painting: "work_on_canvas",
+          };
+          if (mediumToWorkType[tags.medium]) {
+            row.work_type = mediumToWorkType[tags.medium];
+          }
+        }
+
         const tagText = [...aiTagsHero, ...aiTagsHidden].join(", ");
         embeddingVector = await generateEmbedding(tagText);
         steps.push({
           step: "AI tagging",
           status: "success",
           durationMs: Date.now() - stepStart,
-          detail: `${aiTagsHero.length} hero + ${aiTagsHidden.length} hidden tags`,
+          detail: `${aiTagsHero.length} hero + ${aiTagsHidden.length} hidden tags${tags.medium ? `, medium: ${tags.medium}` : ""}`,
         });
       } catch (aiError) {
         console.error(`AI tagging failed for ${row.title}:`, aiError);
