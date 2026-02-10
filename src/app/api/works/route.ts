@@ -7,8 +7,10 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "48", 10);
   const search = searchParams.get("search") || "";
-  const workType = searchParams.get("workType") as WorkType | null;
-  const orientation = searchParams.get("orientation") as Orientation | null;
+  const workTypeParam = searchParams.get("workType") || "";
+  const orientationParam = searchParams.get("orientation") || "";
+  const sourceTypeParam = searchParams.get("sourceType") || "";
+  const retailerExclusiveParam = searchParams.get("retailerExclusive") || "";
   const artist = searchParams.get("artist") || "";
   const gpExclusive = searchParams.get("gpExclusive");
   const statusParam = searchParams.get("status");
@@ -21,14 +23,29 @@ export async function GET(request: NextRequest) {
     ...(status ? { status } : {}),
   };
 
-  // Filter by work type
-  if (workType) {
-    where.workType = workType;
+  // Filter by work type (supports comma-separated multi-select)
+  if (workTypeParam) {
+    const types = workTypeParam.split(",").filter(Boolean) as WorkType[];
+    where.workType = types.length > 1 ? { in: types } : types[0];
   }
 
-  // Filter by orientation
-  if (orientation) {
-    where.orientation = orientation;
+  // Filter by orientation (supports comma-separated multi-select)
+  if (orientationParam) {
+    const orients = orientationParam.split(",").filter(Boolean) as Orientation[];
+    where.orientation = orients.length > 1 ? { in: orients } : orients[0];
+  }
+
+  // Filter by source type (supports comma-separated multi-select)
+  if (sourceTypeParam) {
+    const sources = sourceTypeParam.split(",").filter(Boolean);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where.sourceType = sources.length > 1 ? { in: sources as any } : (sources[0] as any);
+  }
+
+  // Filter by retailer exclusive (supports comma-separated multi-select)
+  if (retailerExclusiveParam) {
+    const retailers = retailerExclusiveParam.split(",").filter(Boolean);
+    where.retailerExclusive = retailers.length > 1 ? { in: retailers } : retailers[0];
   }
 
   // Filter by artist

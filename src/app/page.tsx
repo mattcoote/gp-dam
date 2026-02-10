@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Search, X, Grid3X3, Grid2X2, Loader2, ChevronDown } from "lucide-react";
+import {
+  Search,
+  X,
+  Grid3X3,
+  Grid2X2,
+  Loader2,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
 import { CartProvider } from "@/components/cart/CartContext";
@@ -35,9 +44,281 @@ interface Pagination {
   totalPages: number;
 }
 
-// GP Exclusive is always pinned first
-const GP_EXCLUSIVE_FILTER = { label: "GP Exclusive", type: "gpExclusive" as const };
+interface SidebarFilters {
+  workTypes: string[];
+  orientations: string[];
+  sourceTypes: string[];
+  retailers: string[];
+}
+
+const EMPTY_FILTERS: SidebarFilters = {
+  workTypes: [],
+  orientations: [],
+  sourceTypes: [],
+  retailers: [],
+};
+
+// Label maps
+const WORK_TYPE_LABELS: Record<string, string> = {
+  synograph: "Synograph",
+  work_on_paper: "Work on Paper",
+  work_on_canvas: "Work on Canvas",
+  photography: "Photography",
+  reductive: "Reductive",
+};
+
+const ORIENTATION_LABELS: Record<string, string> = {
+  landscape: "Landscape",
+  portrait: "Portrait",
+  square: "Square",
+};
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  gp_original: "GP Original",
+  rijksmuseum: "Rijksmuseum",
+  getty: "Getty Museum",
+  met: "The Met",
+  yale: "Yale Art Gallery",
+  national_gallery: "National Gallery of Art",
+  cleveland: "Cleveland Museum of Art",
+};
+
+// GP Exclusive quick filter
+const GP_EXCLUSIVE_FILTER = "GP Exclusive";
 const MAX_TAG_FILTERS = 6;
+
+// ─── Filter Sidebar ────────────────────────────────────────
+
+function FilterSection({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-border/50 pb-3 mb-3 last:border-0 last:pb-0 last:mb-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full text-left group"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">
+          {title}
+        </span>
+        {open ? (
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+        )}
+      </button>
+      {open && <div className="mt-2.5">{children}</div>}
+    </div>
+  );
+}
+
+function CheckboxGroup({
+  options,
+  labels,
+  selected,
+  onChange,
+}: {
+  options: string[];
+  labels: Record<string, string>;
+  selected: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const toggle = (value: string) => {
+    onChange(
+      selected.includes(value)
+        ? selected.filter((v) => v !== value)
+        : [...selected, value]
+    );
+  };
+  return (
+    <div className="space-y-1.5">
+      {options.map((opt) => (
+        <label
+          key={opt}
+          className="flex items-center gap-2.5 cursor-pointer group"
+        >
+          <input
+            type="checkbox"
+            checked={selected.includes(opt)}
+            onChange={() => toggle(opt)}
+            className="w-3.5 h-3.5 rounded border-gray-300 text-foreground focus:ring-foreground accent-black"
+          />
+          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+            {labels[opt] || opt}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function FilterSidebar({
+  filters,
+  setFilters,
+  artistFilter,
+  setArtistFilter,
+  artists,
+  retailers,
+  topTags,
+  activeTagFilter,
+  setActiveTagFilter,
+  onClose,
+}: {
+  filters: SidebarFilters;
+  setFilters: (f: SidebarFilters) => void;
+  artistFilter: string;
+  setArtistFilter: (v: string) => void;
+  artists: string[];
+  retailers: string[];
+  topTags: { tag: string; label: string; count: number }[];
+  activeTagFilter: string | null;
+  setActiveTagFilter: (v: string | null) => void;
+  onClose?: () => void;
+}) {
+  const activeCount =
+    filters.workTypes.length +
+    filters.orientations.length +
+    filters.sourceTypes.length +
+    filters.retailers.length +
+    (artistFilter ? 1 : 0) +
+    (activeTagFilter ? 1 : 0);
+
+  const clearAll = () => {
+    setFilters(EMPTY_FILTERS);
+    setArtistFilter("");
+    setActiveTagFilter(null);
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="w-4 h-4" />
+          <span className="text-sm font-semibold">Filters</span>
+          {activeCount > 0 && (
+            <span className="bg-foreground text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {activeCount > 0 && (
+            <button
+              onClick={clearAll}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="md:hidden p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Scrollable filter content */}
+      <div className="flex-1 overflow-y-auto space-y-0">
+        {/* Artist */}
+        <FilterSection title="Artist">
+          <select
+            value={artistFilter}
+            onChange={(e) => setArtistFilter(e.target.value)}
+            className="w-full rounded-md border border-border bg-white px-3 py-1.5 text-sm outline-none focus:border-foreground transition-colors"
+          >
+            <option value="">All Artists</option>
+            {artists.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </FilterSection>
+
+        {/* Work Type */}
+        <FilterSection title="Work Type">
+          <CheckboxGroup
+            options={Object.keys(WORK_TYPE_LABELS)}
+            labels={WORK_TYPE_LABELS}
+            selected={filters.workTypes}
+            onChange={(v) => setFilters({ ...filters, workTypes: v })}
+          />
+        </FilterSection>
+
+        {/* Orientation */}
+        <FilterSection title="Orientation">
+          <CheckboxGroup
+            options={Object.keys(ORIENTATION_LABELS)}
+            labels={ORIENTATION_LABELS}
+            selected={filters.orientations}
+            onChange={(v) => setFilters({ ...filters, orientations: v })}
+          />
+        </FilterSection>
+
+        {/* Source */}
+        <FilterSection title="Source" defaultOpen={false}>
+          <CheckboxGroup
+            options={Object.keys(SOURCE_TYPE_LABELS)}
+            labels={SOURCE_TYPE_LABELS}
+            selected={filters.sourceTypes}
+            onChange={(v) => setFilters({ ...filters, sourceTypes: v })}
+          />
+        </FilterSection>
+
+        {/* Retailer Exclusive */}
+        {retailers.length > 0 && (
+          <FilterSection title="Retailer" defaultOpen={false}>
+            <CheckboxGroup
+              options={retailers}
+              labels={Object.fromEntries(retailers.map((r) => [r, r]))}
+              selected={filters.retailers}
+              onChange={(v) => setFilters({ ...filters, retailers: v })}
+            />
+          </FilterSection>
+        )}
+
+        {/* AI Tags — Style & Subject */}
+        {topTags.length > 0 && (
+          <FilterSection title="Style & Subject">
+            <div className="flex flex-wrap gap-1.5">
+              {topTags.slice(0, 15).map((t) => (
+                <button
+                  key={t.tag}
+                  onClick={() =>
+                    setActiveTagFilter(
+                      activeTagFilter === t.label ? null : t.label
+                    )
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                    activeTagFilter === t.label
+                      ? "border-foreground bg-foreground text-white"
+                      : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </FilterSection>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Content ──────────────────────────────────────────
 
 function HomeContent() {
   const [works, setWorks] = useState<Work[]>([]);
@@ -53,18 +334,32 @@ function HomeContent() {
   const [cartOpen, setCartOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const [artists, setArtists] = useState<string[]>([]);
-  const [topTags, setTopTags] = useState<{ tag: string; label: string; count: number }[]>([]);
 
-  // Fetch distinct artists and top tags for filter dropdowns
+  // Data for filters
+  const [artists, setArtists] = useState<string[]>([]);
+  const [retailers, setRetailers] = useState<string[]>([]);
+  const [topTags, setTopTags] = useState<
+    { tag: string; label: string; count: number }[]
+  >([]);
+
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filters, setFilters] = useState<SidebarFilters>(EMPTY_FILTERS);
+  const [sidebarTagFilter, setSidebarTagFilter] = useState<string | null>(null);
+
+  // Fetch filter options on mount
   useEffect(() => {
     fetch("/api/works/artists")
-      .then((res) => res.json())
-      .then((data) => setArtists(data.artists || []))
+      .then((r) => r.json())
+      .then((d) => setArtists(d.artists || []))
+      .catch(() => {});
+    fetch("/api/works/retailers")
+      .then((r) => r.json())
+      .then((d) => setRetailers(d.retailers || []))
       .catch(() => {});
     fetch("/api/works/top-tags")
-      .then((res) => res.json())
-      .then((data) => setTopTags(data.topTags || []))
+      .then((r) => r.json())
+      .then((d) => setTopTags(d.topTags || []))
       .catch(() => {});
   }, []);
 
@@ -74,36 +369,57 @@ function HomeContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Count active sidebar filters for badge
+  const sidebarFilterCount =
+    filters.workTypes.length +
+    filters.orientations.length +
+    filters.sourceTypes.length +
+    filters.retailers.length +
+    (artistFilter ? 1 : 0) +
+    (sidebarTagFilter ? 1 : 0);
+
+  const anyFilterActive =
+    !!searchQuery || !!activeFilter || sidebarFilterCount > 0;
+
   const buildParams = useCallback(
     (page: number) => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(PAGE_SIZE));
 
-      if (debouncedSearch) {
-        params.set("search", debouncedSearch);
+      // Build search string (combine text search + quick filter + sidebar tag)
+      let searchStr = debouncedSearch;
+      if (activeFilter && activeFilter !== GP_EXCLUSIVE_FILTER) {
+        searchStr = searchStr
+          ? `${searchStr} ${activeFilter.toLowerCase()}`
+          : activeFilter.toLowerCase();
+      }
+      if (sidebarTagFilter) {
+        searchStr = searchStr
+          ? `${searchStr} ${sidebarTagFilter.toLowerCase()}`
+          : sidebarTagFilter.toLowerCase();
+      }
+      if (searchStr) params.set("search", searchStr);
+
+      // Quick filter: GP Exclusive
+      if (activeFilter === GP_EXCLUSIVE_FILTER) {
+        params.set("gpExclusive", "true");
       }
 
-      if (artistFilter) {
-        params.set("artist", artistFilter);
-      }
-
-      // Apply active quick filter
-      if (activeFilter) {
-        if (activeFilter === GP_EXCLUSIVE_FILTER.label) {
-          params.set("gpExclusive", "true");
-        } else {
-          // Tag-based filter — combine with search
-          const combined = debouncedSearch
-            ? `${debouncedSearch} ${activeFilter.toLowerCase()}`
-            : activeFilter.toLowerCase();
-          params.set("search", combined);
-        }
-      }
+      // Sidebar structured filters
+      if (artistFilter) params.set("artist", artistFilter);
+      if (filters.workTypes.length > 0)
+        params.set("workType", filters.workTypes.join(","));
+      if (filters.orientations.length > 0)
+        params.set("orientation", filters.orientations.join(","));
+      if (filters.sourceTypes.length > 0)
+        params.set("sourceType", filters.sourceTypes.join(","));
+      if (filters.retailers.length > 0)
+        params.set("retailerExclusive", filters.retailers.join(","));
 
       return params;
     },
-    [debouncedSearch, activeFilter, artistFilter]
+    [debouncedSearch, activeFilter, artistFilter, filters, sidebarTagFilter]
   );
 
   // Initial fetch (page 1) — resets when filters/search change
@@ -123,9 +439,10 @@ function HomeContent() {
     }
   }, [buildParams]);
 
-  // Load more (next page) — appends to existing works
+  // Load more (next page) — appends
   const loadMore = useCallback(async () => {
-    if (loadingMore || !pagination || currentPage >= pagination.totalPages) return;
+    if (loadingMore || !pagination || currentPage >= pagination.totalPages)
+      return;
     setLoadingMore(true);
     const nextPage = currentPage + 1;
     try {
@@ -146,26 +463,40 @@ function HomeContent() {
     fetchWorks();
   }, [fetchWorks]);
 
-  // Infinite scroll: IntersectionObserver on sentinel div
+  // Infinite scroll
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
+        if (entries[0].isIntersecting) loadMore();
       },
       { rootMargin: "600px" }
     );
-
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const toggleFilter = (label: string) => {
+  // Mobile sidebar: close on Escape, prevent body scroll
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [sidebarOpen]);
+
+  const toggleQuickFilter = (label: string) => {
     setActiveFilter((prev) => (prev === label ? null : label));
+  };
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setActiveFilter(null);
+    setArtistFilter("");
+    setFilters(EMPTY_FILTERS);
+    setSidebarTagFilter(null);
   };
 
   const hasMore = pagination ? currentPage < pagination.totalPages : false;
@@ -174,7 +505,7 @@ function HomeContent() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-border sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center px-6 relative">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center px-6 relative">
           <a href="/" className="flex items-center gap-0">
             <span className="font-[family-name:var(--font-oswald)] text-2xl font-bold tracking-tight uppercase">
               General Public
@@ -223,25 +554,22 @@ function HomeContent() {
           )}
         </div>
 
-        {/* Quick Filters — GP Exclusive pinned first, then top tags from the catalog */}
+        {/* Quick Filters — GP Exclusive pinned first, then top tags */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {/* GP Exclusive — always visible */}
           <button
-            onClick={() => toggleFilter(GP_EXCLUSIVE_FILTER.label)}
+            onClick={() => toggleQuickFilter(GP_EXCLUSIVE_FILTER)}
             className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-              activeFilter === GP_EXCLUSIVE_FILTER.label
+              activeFilter === GP_EXCLUSIVE_FILTER
                 ? "border-foreground bg-foreground text-white"
                 : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
             }`}
           >
-            {GP_EXCLUSIVE_FILTER.label}
+            GP Exclusive
           </button>
-
-          {/* Dynamic tag filters from catalog */}
           {topTags.slice(0, MAX_TAG_FILTERS).map((t) => (
             <button
               key={t.tag}
-              onClick={() => toggleFilter(t.label)}
+              onClick={() => toggleQuickFilter(t.label)}
               className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
                 activeFilter === t.label
                   ? "border-foreground bg-foreground text-white"
@@ -251,34 +579,38 @@ function HomeContent() {
               {t.label}
             </button>
           ))}
-
-          {/* Artist filter dropdown */}
-          <div className="relative">
-            <select
-              value={artistFilter}
-              onChange={(e) => setArtistFilter(e.target.value)}
-              className={`appearance-none rounded-full border px-4 py-1.5 pr-8 text-sm transition-colors cursor-pointer ${
-                artistFilter
-                  ? "border-foreground bg-foreground text-white"
-                  : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-              }`}
-            >
-              <option value="">Artist</option>
-              {artists.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" />
-          </div>
         </div>
       </section>
 
-      {/* Works Grid */}
-      <section className="mx-auto max-w-7xl px-6 pb-24">
-        {/* Toolbar: thumbnail size toggle */}
-        <div className="flex items-center justify-end gap-2 mb-4">
+      {/* Main content area: sidebar + grid */}
+      <section className="mx-auto max-w-[1600px] px-6 pb-24">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-2 mb-4">
+          {/* Filter toggle */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              sidebarOpen || sidebarFilterCount > 0
+                ? "border-foreground bg-foreground text-white"
+                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Filters</span>
+            {sidebarFilterCount > 0 && (
+              <span
+                className={`text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${
+                  sidebarOpen
+                    ? "bg-white text-foreground"
+                    : "bg-foreground text-white"
+                }`}
+              >
+                {sidebarFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* Thumbnail size toggle */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setThumbSize("large")}
@@ -304,90 +636,135 @@ function HomeContent() {
             </button>
           </div>
         </div>
-        {loading ? (
-          <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
-            }}
-          >
-            {Array.from({ length: thumbSize === "small" ? 12 : 8 }).map((_, i) => (
-              <div key={i}>
-                <div className="aspect-[3/4] rounded-lg bg-muted animate-pulse mb-3" />
-                <div className="h-4 w-3/4 bg-muted rounded animate-pulse mb-1" />
-                <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-        ) : works.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground">
-              {searchQuery || activeFilter || artistFilter
-                ? "No works match your search."
-                : "No works in the catalog yet."}
-            </p>
-            {(searchQuery || activeFilter || artistFilter) && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setActiveFilter(null);
-                  setArtistFilter("");
-                }}
-                className="mt-3 text-sm text-foreground underline"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div
-            className={thumbSize === "small" ? "grid gap-3" : "grid gap-4"}
-            style={{
-              gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
-            }}
-          >
-            {works.map((work) => (
-              <WorkCard
-                key={work.id}
-                work={work}
-                compact={thumbSize === "small"}
-                onSelect={(w) => setSelectedWorkId(w.id)}
-              />
-            ))}
-          </div>
-        )}
 
-        {/* Infinite scroll sentinel + load more */}
-        {!loading && hasMore && (
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              Showing {works.length} of {pagination?.total} works
-            </p>
-            {loadingMore ? (
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            ) : (
-              <button
-                onClick={loadMore}
-                className="rounded-full border border-border px-6 py-2 text-sm text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+        {/* Flex layout: sidebar + grid */}
+        <div className="flex gap-6">
+          {/* Desktop sidebar */}
+          {sidebarOpen && (
+            <aside className="hidden md:block w-[260px] flex-shrink-0">
+              <div className="sticky top-20">
+                <FilterSidebar
+                  filters={filters}
+                  setFilters={setFilters}
+                  artistFilter={artistFilter}
+                  setArtistFilter={setArtistFilter}
+                  artists={artists}
+                  retailers={retailers}
+                  topTags={topTags}
+                  activeTagFilter={sidebarTagFilter}
+                  setActiveTagFilter={setSidebarTagFilter}
+                />
+              </div>
+            </aside>
+          )}
+
+          {/* Grid */}
+          <div className="flex-1 min-w-0">
+            {loading ? (
+              <div
+                className="grid gap-4"
+                style={{
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
+                }}
               >
-                Load more
-              </button>
+                {Array.from({
+                  length: thumbSize === "small" ? 12 : 8,
+                }).map((_, i) => (
+                  <div key={i}>
+                    <div className="aspect-[3/4] rounded-lg bg-muted animate-pulse mb-3" />
+                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse mb-1" />
+                    <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : works.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground">
+                  {anyFilterActive
+                    ? "No works match your filters."
+                    : "No works in the catalog yet."}
+                </p>
+                {anyFilterActive && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-3 text-sm text-foreground underline"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div
+                className={thumbSize === "small" ? "grid gap-3" : "grid gap-4"}
+                style={{
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${thumbSize === "small" ? "150px" : "240px"}, 1fr))`,
+                }}
+              >
+                {works.map((work) => (
+                  <WorkCard
+                    key={work.id}
+                    work={work}
+                    compact={thumbSize === "small"}
+                    onSelect={(w) => setSelectedWorkId(w.id)}
+                  />
+                ))}
+              </div>
             )}
+
+            {/* Infinite scroll sentinel + load more */}
+            {!loading && hasMore && (
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Showing {works.length} of {pagination?.total} works
+                </p>
+                {loadingMore ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <button
+                    onClick={loadMore}
+                    className="rounded-full border border-border px-6 py-2 text-sm text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                  >
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
+            <div ref={sentinelRef} className="h-1" />
           </div>
-        )}
-        {/* Invisible sentinel for intersection observer */}
-        <div ref={sentinelRef} className="h-1" />
+        </div>
       </section>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-white shadow-xl p-5 overflow-y-auto">
+            <FilterSidebar
+              filters={filters}
+              setFilters={setFilters}
+              artistFilter={artistFilter}
+              setArtistFilter={setArtistFilter}
+              artists={artists}
+              retailers={retailers}
+              topTags={topTags}
+              activeTagFilter={sidebarTagFilter}
+              setActiveTagFilter={setSidebarTagFilter}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-2">
+        <div className="max-w-[1600px] mx-auto px-6 flex flex-col items-center gap-2">
           <span className="font-[family-name:var(--font-oswald)] text-sm font-bold tracking-tight uppercase">
             General Public
           </span>
-          <p className="text-xs text-muted-foreground">
-            &copy;2026
-          </p>
+          <p className="text-xs text-muted-foreground">&copy;2026</p>
         </div>
       </footer>
 
