@@ -134,6 +134,9 @@ export async function POST(request: NextRequest) {
           title: row.title,
           artistName: row.artist_name,
           error: `Image file "${row.filename}" not found in ZIP`,
+          failedStep: "File matching",
+          steps: [{ step: "File matching", status: "failed", durationMs: 0, detail: `"${row.filename}" not found in ZIP` }],
+          totalDurationMs: 0,
         });
         errorCount++;
         continue;

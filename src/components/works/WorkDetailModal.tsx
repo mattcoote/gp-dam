@@ -1,8 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
-import { useEffect, useState } from "react";
-import AddToSelectionButton from "@/components/selections/AddToSelectionButton";
+import { X, ChevronLeft, ChevronRight, Plus, Check } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useCart } from "@/components/cart/CartContext";
 
 interface WorkDetail {
   id: string;
@@ -16,6 +16,7 @@ interface WorkDetail {
   dimensionsInches: { width: number; height: number; depth?: number } | null;
   maxPrintInches: { width: number; height: number } | null;
   imageUrlPreview: string | null;
+  imageUrlThumbnail: string | null;
   aiTagsHero: string[];
   retailerExclusive: string | null;
   customResizeAvailable: boolean;
@@ -24,9 +25,8 @@ interface WorkDetail {
 interface WorkDetailModalProps {
   workId: string | null;
   onClose: () => void;
-  sessionId: string;
-  activeSelectionId: string | null;
-  onSetActiveSelectionId: (id: string) => void;
+  workIds?: string[];
+  onNavigate?: (workId: string) => void;
 }
 
 const WORK_TYPE_LABELS: Record<string, string> = {
@@ -40,12 +40,27 @@ const WORK_TYPE_LABELS: Record<string, string> = {
 export default function WorkDetailModal({
   workId,
   onClose,
-  sessionId,
-  activeSelectionId,
-  onSetActiveSelectionId,
+  workIds = [],
+  onNavigate,
 }: WorkDetailModalProps) {
   const [work, setWork] = useState<WorkDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const { addItem, removeItem, isInCart } = useCart();
+
+  const currentIndex = workId ? workIds.indexOf(workId) : -1;
+  const canNavigate = workIds.length > 1 && onNavigate;
+
+  const goToPrev = useCallback(() => {
+    if (!canNavigate || currentIndex < 0) return;
+    const prevIndex = currentIndex === 0 ? workIds.length - 1 : currentIndex - 1;
+    onNavigate!(workIds[prevIndex]);
+  }, [canNavigate, currentIndex, workIds, onNavigate]);
+
+  const goToNext = useCallback(() => {
+    if (!canNavigate || currentIndex < 0) return;
+    const nextIndex = currentIndex === workIds.length - 1 ? 0 : currentIndex + 1;
+    onNavigate!(workIds[nextIndex]);
+  }, [canNavigate, currentIndex, workIds, onNavigate]);
 
   useEffect(() => {
     if (!workId) {
@@ -64,18 +79,21 @@ export default function WorkDetailModal({
   }, [workId]);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    if (!workId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") goToPrev();
+      if (e.key === "ArrowRight") goToNext();
     };
-    if (workId) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [workId, onClose]);
+  }, [workId, onClose, goToPrev, goToNext]);
 
   if (!workId) return null;
 
@@ -88,6 +106,22 @@ export default function WorkDetailModal({
     width: number;
     height: number;
   } | null;
+
+  const inCart = work ? isInCart(work.id) : false;
+
+  function handleCartToggle() {
+    if (!work) return;
+    if (inCart) {
+      removeItem(work.id);
+    } else {
+      addItem({
+        workId: work.id,
+        title: work.title,
+        artistName: work.artistName,
+        imageUrlThumbnail: work.imageUrlThumbnail || null,
+      });
+    }
+  }
 
   return (
     <div
@@ -105,6 +139,26 @@ export default function WorkDetailModal({
           <X className="h-5 w-5" />
         </button>
 
+        {/* Arrow nav buttons */}
+        {canNavigate && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/90 p-2 text-foreground hover:bg-white transition-colors shadow-md"
+              title="Previous work"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); goToNext(); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/90 p-2 text-foreground hover:bg-white transition-colors shadow-md"
+              title="Next work"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
+
         {loading || !work ? (
           <div className="flex items-center justify-center h-96">
             <div className="h-8 w-8 rounded-full border-2 border-foreground border-t-transparent animate-spin" />
@@ -112,7 +166,7 @@ export default function WorkDetailModal({
         ) : (
           <div className="flex flex-col md:flex-row">
             {/* Image */}
-            <div className="flex-1 bg-muted p-8 flex items-center justify-center min-h-[300px]">
+            <div className="flex-1 bg-muted p-8 flex items-center justify-center min-h-[300px] relative">
               {work.imageUrlPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -123,6 +177,13 @@ export default function WorkDetailModal({
               ) : (
                 <div className="text-muted-foreground text-sm">
                   No image available
+                </div>
+              )}
+
+              {/* Position indicator */}
+              {canNavigate && currentIndex >= 0 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1 rounded-full">
+                  {currentIndex + 1} / {workIds.length}
                 </div>
               )}
             </div>
@@ -200,14 +261,26 @@ export default function WorkDetailModal({
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Cart action */}
               <div className="flex flex-col gap-2 mt-auto pt-4">
-                <AddToSelectionButton
-                  workId={work.id}
-                  sessionId={sessionId}
-                  activeSelectionId={activeSelectionId}
-                  onSetActiveSelectionId={onSetActiveSelectionId}
-                />
+                <button
+                  onClick={handleCartToggle}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    inCart
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-black text-white hover:bg-gray-800"
+                  }`}
+                >
+                  {inCart ? (
+                    <>
+                      <Check className="w-4 h-4" /> In Selection
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" /> Add to Selection
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

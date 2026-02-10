@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, X, CheckSquare, Grid3X3, Grid2X2 } from "lucide-react";
+import { Search, X, Grid3X3, Grid2X2 } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
-import SelectionBar from "@/components/selections/SelectionBar";
+import { CartProvider } from "@/components/cart/CartContext";
+import CartIcon from "@/components/cart/CartIcon";
+import CartDrawer from "@/components/cart/CartDrawer";
 
 interface Work {
   id: string;
@@ -21,7 +23,7 @@ interface Work {
   aiTagsHero: string[];
   retailerExclusive: string | null;
   gpExclusive: boolean;
-  createdAt: string; // ISO timestamp — import log, hidden on main page, available for future filtering
+  createdAt: string;
 }
 
 interface Pagination {
@@ -40,17 +42,7 @@ const QUICK_FILTERS = [
   { label: "Botanical", param: "search", value: "botanical" },
 ];
 
-function getOrCreateSessionId(): string {
-  if (typeof window === "undefined") return "";
-  let sessionId = localStorage.getItem("dam-session-id");
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem("dam-session-id", sessionId);
-  }
-  return sessionId;
-}
-
-export default function Home() {
+function HomeContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,34 +50,8 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sessionId, setSessionId] = useState("");
-
-  // Active selection (F1)
-  const [activeSelectionId, setActiveSelectionId] = useState<string | null>(null);
-
-  // Thumbnail size: "large" (fewer columns) or "small" (more columns)
   const [thumbSize, setThumbSize] = useState<"large" | "small">("large");
-
-  // Bulk select mode (F2)
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedWorkIds, setSelectedWorkIds] = useState<Set<string>>(new Set());
-  const [isBulkAdding, setIsBulkAdding] = useState(false);
-
-  // Initialize session ID and active selection on client
-  useEffect(() => {
-    setSessionId(getOrCreateSessionId());
-    const stored = localStorage.getItem("dam-active-selection-id");
-    if (stored) setActiveSelectionId(stored);
-  }, []);
-
-  const updateActiveSelectionId = useCallback((id: string | null) => {
-    setActiveSelectionId(id);
-    if (id) {
-      localStorage.setItem("dam-active-selection-id", id);
-    } else {
-      localStorage.removeItem("dam-active-selection-id");
-    }
-  }, []);
+  const [cartOpen, setCartOpen] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -107,7 +73,6 @@ export default function Home() {
         const filter = QUICK_FILTERS.find((f) => f.label === activeFilter);
         if (filter) {
           if (filter.param === "search") {
-            // Append filter value to search
             const combined = debouncedSearch
               ? `${debouncedSearch} ${filter.value}`
               : filter.value;
@@ -137,59 +102,6 @@ export default function Home() {
     setActiveFilter((prev) => (prev === label ? null : label));
   };
 
-  // Bulk select helpers (F2)
-  function toggleWorkSelection(workId: string) {
-    setSelectedWorkIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(workId)) {
-        next.delete(workId);
-      } else {
-        next.add(workId);
-      }
-      return next;
-    });
-  }
-
-  function exitSelectMode() {
-    setSelectMode(false);
-    setSelectedWorkIds(new Set());
-  }
-
-  async function bulkAddToSelection() {
-    if (selectedWorkIds.size === 0) return;
-    setIsBulkAdding(true);
-
-    let selectionId = activeSelectionId;
-
-    // Auto-create if no active selection
-    if (!selectionId) {
-      const res = await fetch("/api/selections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Selection 1", sessionId }),
-      });
-      const data = await res.json();
-      selectionId = data.selection.id;
-      updateActiveSelectionId(selectionId);
-    }
-
-    // Add each work sequentially
-    for (const workId of selectedWorkIds) {
-      try {
-        await fetch(`/api/selections/${selectionId}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workId }),
-        });
-      } catch {
-        // Skip duplicates / errors
-      }
-    }
-
-    setIsBulkAdding(false);
-    exitSelectMode();
-  }
-
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -203,7 +115,8 @@ export default function Home() {
           <span className="hidden sm:block absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-oswald)] text-sm font-bold uppercase tracking-wider">
             Art Catalog
           </span>
-          <nav className="ml-auto flex items-center gap-6">
+          <nav className="ml-auto flex items-center gap-4">
+            <CartIcon onClick={() => setCartOpen(true)} />
             <a
               href="/admin"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -262,9 +175,8 @@ export default function Home() {
 
       {/* Works Grid */}
       <section className="mx-auto max-w-7xl px-6 pb-24">
-        {/* Toolbar: thumbnail size toggle + select mode */}
+        {/* Toolbar: thumbnail size toggle */}
         <div className="flex items-center justify-end gap-2 mb-4">
-          {/* Thumbnail size toggle */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setThumbSize("large")}
@@ -289,18 +201,6 @@ export default function Home() {
               <Grid3X3 className="w-4 h-4" />
             </button>
           </div>
-
-          <button
-            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              selectMode
-                ? "bg-black text-white"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" />
-            {selectMode ? "Cancel Selection" : "Select Multiple"}
-          </button>
         </div>
         {loading ? (
           <div
@@ -348,15 +248,7 @@ export default function Home() {
                 key={work.id}
                 work={work}
                 compact={thumbSize === "small"}
-                onSelect={(w) => {
-                  if (selectMode) {
-                    toggleWorkSelection(w.id);
-                  } else {
-                    setSelectedWorkId(w.id);
-                  }
-                }}
-                selectMode={selectMode}
-                isSelected={selectedWorkIds.has(work.id)}
+                onSelect={(w) => setSelectedWorkId(w.id)}
               />
             ))}
           </div>
@@ -364,7 +256,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 mb-16">
+      <footer className="border-t border-border py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-2">
           <span className="font-[family-name:var(--font-oswald)] text-sm font-bold tracking-tight uppercase">
             General Public
@@ -375,47 +267,24 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Bulk Select Action Bar */}
-      {selectMode && selectedWorkIds.size > 0 && (
-        <div className="fixed bottom-16 left-0 right-0 z-50 flex justify-center px-6 pb-2">
-          <div className="bg-black text-white rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
-            <span className="text-sm font-medium">
-              {selectedWorkIds.size} selected
-            </span>
-            <button
-              onClick={bulkAddToSelection}
-              disabled={isBulkAdding}
-              className="px-4 py-1.5 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors"
-            >
-              {isBulkAdding ? "Adding..." : "Add to Selection"}
-            </button>
-            <button
-              onClick={exitSelectMode}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Work Detail Modal */}
       <WorkDetailModal
         workId={selectedWorkId}
         onClose={() => setSelectedWorkId(null)}
-        sessionId={sessionId}
-        activeSelectionId={activeSelectionId}
-        onSetActiveSelectionId={updateActiveSelectionId}
+        workIds={works.map((w) => w.id)}
+        onNavigate={setSelectedWorkId}
       />
 
-      {/* Selection Bar */}
-      {sessionId && (
-        <SelectionBar
-          sessionId={sessionId}
-          activeSelectionId={activeSelectionId}
-          onSetActiveSelectionId={updateActiveSelectionId}
-        />
-      )}
+      {/* Cart Drawer */}
+      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <CartProvider>
+      <HomeContent />
+    </CartProvider>
   );
 }

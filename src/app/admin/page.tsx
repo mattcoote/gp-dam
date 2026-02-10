@@ -17,9 +17,20 @@ import {
   X,
   Lock,
   Download,
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle,
+  SkipForward,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────
+
+interface ImportStepLog {
+  step: string;
+  status: "success" | "failed" | "skipped";
+  durationMs: number;
+  detail?: string;
+}
 
 interface ImportResult {
   success: boolean;
@@ -27,6 +38,9 @@ interface ImportResult {
   title: string;
   artistName: string;
   error?: string;
+  failedStep?: string;
+  steps?: ImportStepLog[];
+  totalDurationMs?: number;
 }
 
 interface UploadResponse {
@@ -526,6 +540,150 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
           </a>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Import Log Component ───────────────────────────────────
+
+function ImportLog({ response }: { response: UploadResponse }) {
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  const toggleRow = (i: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedRows(new Set(response.results.map((_, i) => i)));
+  };
+
+  const collapseAll = () => {
+    setExpandedRows(new Set());
+  };
+
+  function formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+
+  return (
+    <div className="space-y-4">
+      {response.error && !response.results?.length ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-800">{response.error}</p>
+          {response.details && (
+            <ul className="mt-2 space-y-1">
+              {response.details.map((d, i) => (
+                <li key={i} className="text-xs text-red-600">{d}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-sm font-medium">{response.message}</p>
+          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+            <span>Total: {response.total}</span>
+            <span className="text-green-600">Succeeded: {response.successCount}</span>
+            {response.errorCount > 0 && (
+              <span className="text-red-600">Failed: {response.errorCount}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {response.results?.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+            <span className="text-xs font-medium text-muted-foreground">Upload Log</span>
+            <div className="flex gap-2">
+              <button onClick={expandAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                Expand All
+              </button>
+              <span className="text-muted-foreground/40">|</span>
+              <button onClick={collapseAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                Collapse All
+              </button>
+            </div>
+          </div>
+          <div className="divide-y divide-border/50">
+            {response.results.map((r, i) => (
+              <div key={i}>
+                <button
+                  onClick={() => toggleRow(i)}
+                  className={`w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors ${
+                    !r.success ? "bg-red-50/50" : ""
+                  }`}
+                >
+                  {expandedRows.has(i) ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  )}
+                  {r.success ? (
+                    <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                  )}
+                  <span className="text-sm truncate flex-1">{r.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{r.artistName}</span>
+                  {r.gpSku && r.gpSku !== "—" && r.gpSku !== "N/A" && (
+                    <span className="text-[10px] font-mono text-muted-foreground shrink-0">{r.gpSku}</span>
+                  )}
+                  {r.totalDurationMs !== undefined && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">{formatDuration(r.totalDurationMs)}</span>
+                  )}
+                  {r.failedStep && (
+                    <span className="text-[10px] text-red-500 shrink-0">Failed: {r.failedStep}</span>
+                  )}
+                </button>
+
+                {expandedRows.has(i) && (
+                  <div className="px-3 pb-3 pl-12">
+                    {r.error && (
+                      <div className="text-xs text-red-600 mb-2 flex items-start gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        {r.error}
+                      </div>
+                    )}
+                    {r.steps && r.steps.length > 0 ? (
+                      <div className="space-y-1">
+                        {r.steps.map((step, si) => (
+                          <div key={si} className="flex items-center gap-2 text-xs">
+                            {step.status === "success" ? (
+                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                            ) : step.status === "failed" ? (
+                              <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                            ) : (
+                              <SkipForward className="h-3 w-3 text-gray-400 shrink-0" />
+                            )}
+                            <span className={`font-medium ${
+                              step.status === "failed" ? "text-red-600" : step.status === "skipped" ? "text-gray-400" : "text-foreground"
+                            }`}>
+                              {step.step}
+                            </span>
+                            <span className="text-muted-foreground">{formatDuration(step.durationMs)}</span>
+                            {step.detail && (
+                              <span className="text-muted-foreground truncate">{step.detail}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No step details available</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2031,64 +2189,7 @@ export default function AdminPage() {
               )}
 
               {response && (
-                <div className="space-y-4">
-                  {response.error && !response.results?.length ? (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-                      <p className="text-sm font-medium text-red-800">{response.error}</p>
-                      {response.details && (
-                        <ul className="mt-2 space-y-1">
-                          {response.details.map((d, i) => (
-                            <li key={i} className="text-xs text-red-600">{d}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-border p-4">
-                      <p className="text-sm font-medium">{response.message}</p>
-                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                        <span>Total: {response.total}</span>
-                        <span className="text-green-600">Succeeded: {response.successCount}</span>
-                        {response.errorCount > 0 && (
-                          <span className="text-red-600">Failed: {response.errorCount}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {response.results?.length > 0 && (
-                    <div className="rounded-xl border border-border overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/50">
-                            <th className="text-left p-3 font-medium">Status</th>
-                            <th className="text-left p-3 font-medium">SKU</th>
-                            <th className="text-left p-3 font-medium">Title</th>
-                            <th className="text-left p-3 font-medium">Artist</th>
-                            <th className="text-left p-3 font-medium">Details</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {response.results.map((r, i) => (
-                            <tr key={i} className="border-b border-border/50 last:border-0">
-                              <td className="p-3">
-                                {r.success ? (
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 text-red-500" />
-                                )}
-                              </td>
-                              <td className="p-3 font-mono text-xs">{r.gpSku}</td>
-                              <td className="p-3">{r.title}</td>
-                              <td className="p-3 text-muted-foreground">{r.artistName}</td>
-                              <td className="p-3 text-xs text-red-500">{r.error || ""}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                <ImportLog response={response} />
               )}
             </div>
           </div>

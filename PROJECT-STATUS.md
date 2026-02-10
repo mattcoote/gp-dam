@@ -16,7 +16,7 @@ A Digital Asset Management system for **General Public** (art print company), re
 
 ### What's Done
 - **Catalog homepage** with search, filters (orientation, work type, search tags, GP Exclusive), responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
-- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, one-click "Add to Selection" button
+- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons) with position indicator
 - **AI tagging** with OpenAI GPT-4o vision (10 hero + 50 hidden tags per work)
 - **Vector/semantic search** with text-embedding-3-large (1536-dim pgvector embeddings)
 - **Password-protected admin** (`ADMIN_PASSWORD` env var, session-based)
@@ -36,12 +36,15 @@ A Digital Asset Management system for **General Public** (art print company), re
 - **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards, quick filter bubble on homepage
 - **Source image access** — direct links to full-res museum source images (opens in new tab) on search cards + download from S3 on works table
 - **Excel import template** — generated via `scripts/generate-csv-template.mjs` with validation dropdowns, example rows, and instructions sheet
-- **Selections system** (session-based, no login required for V1):
-  - **Active selection model** — one-click add to the currently active selection
-  - **Auto-create** — if no selection exists, clicking "Add to Selection" creates "Selection 1" automatically
-  - **Bulk select mode** — checkbox overlay on catalog cards, floating action bar to add multiple works at once
-  - **Selection bar** — fixed bottom bar showing active selection name + work count, create/switch selections, grey background when selection has items
-  - Drag-to-reorder, per-item notes, selection-level notes
+- **Selection system** (cart UX pattern, replaces old selection bar):
+  - **Shopping bag icon** in header with badge count
+  - **Per-card "+" overlay** on hover to add/remove works from selection (checkmark when selected)
+  - **Selection drawer** — slide-out panel from right with item list, remove, clear all
+  - **"View Selection"** — saves to DB, opens public share page in new tab
+  - **"Edit & Share"** — saves to DB, opens selection detail page (drag-to-reorder, notes, all exports)
+  - **"PDF"** — saves to DB, downloads PDF export directly
+  - **localStorage persistence** — selection survives page refreshes
+  - **Selection detail page** — drag-to-reorder tiles, per-item notes, selection-level notes, PDF/Excel/PPT export, share link
 - **Share links** with unique tokens, public read-only view with GP branding + masonry layout
 - **Export formats:**
   - **PDF** — branded title page + one page per work with metadata
@@ -241,11 +244,12 @@ gp-dam/
 │   │       └── selections/[id]/export/ppt/route.ts  # PowerPoint export
 │   ├── components/
 │   │   ├── works/
-│   │   │   ├── WorkCard.tsx              # Grid card with natural aspect ratio, checkbox overlay for select mode
-│   │   │   └── WorkDetailModal.tsx       # Detail popup with one-click "Add to Selection"
-│   │   ├── selections/
-│   │   │   ├── AddToSelectionButton.tsx  # One-click add to active selection (auto-creates if needed)
-│   │   │   └── SelectionBar.tsx          # Fixed bottom bar - active selection, create/switch
+│   │   │   ├── WorkCard.tsx              # Grid card with natural aspect ratio, selection toggle overlay
+│   │   │   └── WorkDetailModal.tsx       # Detail popup with arrow nav + "Add to Selection"
+│   │   ├── cart/
+│   │   │   ├── CartContext.tsx           # React Context + localStorage persistence
+│   │   │   ├── CartIcon.tsx             # Header icon with badge count
+│   │   │   └── CartDrawer.tsx           # Slide-out panel with View Selection, Edit & Share, PDF, Clear All
 │   │   └── search/
 │   │       └── SearchBar.tsx             # Search input with debounce
 │   ├── lib/
@@ -313,13 +317,11 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 
 ## Selection UX
 
-- **Active selection model** — one selection is "active" at a time (stored in localStorage)
-- **One-click add** — clicking "Add to Selection" in work detail modal adds to active selection instantly
-- **Auto-create** — if no selection exists, one is created automatically as "Selection 1"
-- **Bulk select** — "Select Multiple" button enables checkbox mode on catalog cards; floating bar to add all selected works
-- **Selection bar** — fixed bottom bar shows active selection + count; expand to see all selections, click to switch active
-- **Share** — each selection has a share token for public read-only link
-- **Export** — PDF, Excel, and PowerPoint downloads from selection detail page
+- **Selection drawer** — works are added/removed via "+" overlay on cards or "Add to Selection" in the detail modal. Selection state lives in React Context + localStorage (survives refreshes). Shopping bag icon in header shows badge count; clicking opens a slide-out drawer.
+- **Drawer actions** — "View Selection" (opens public share page), "Edit & Share" (opens selection detail page with reorder/notes/exports), "PDF" (direct download), "Clear All"
+- **Selection detail page** — drag-to-reorder tiles, per-item notes, selection-level notes, editable name, PDF/Excel/PPT export, share link copy, delete
+- **Share** — each selection has a share token for public read-only link with masonry layout
+- **Arrow navigation** — left/right arrow keys or chevron buttons flip through works in the detail modal, with position indicator ("3 / 47") and wrap-around
 
 ---
 
@@ -357,7 +359,7 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 7. **Vercel + Neon** — natural fit, both have free tiers
 8. **Oswald 700** for brand wordmark font
 9. **S3 direct URLs** (no CloudFront) for V1 simplicity
-10. **Active selection model** — simpler UX than dropdown selection picker
+10. **Selection drawer model** — replaced bottom selection bar + bulk select mode with cart-style pattern (header icon, per-card toggle, slide-out drawer with View/Edit/PDF/Clear actions)
 11. **Images-only upload** — CSV optional, titles derived from filenames, metadata updatable later
 12. **Public domain = Reductive** — all museum imports use `work_type: "reductive"` (Reductive on Paper/Canvas)
 13. **Free-text Source field** — admin Add Work form uses text input for source (not enum dropdown)

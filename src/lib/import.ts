@@ -22,12 +22,22 @@ export interface CsvRow {
   gp_exclusive?: string; // "yes"/"true"/"1" = GP exclusive
 }
 
+export interface ImportStepLog {
+  step: string;
+  status: "success" | "failed" | "skipped";
+  durationMs: number;
+  detail?: string;
+}
+
 export interface ImportResult {
   success: boolean;
   gpSku: string;
   title: string;
   artistName: string;
   error?: string;
+  failedStep?: string;
+  steps?: ImportStepLog[];
+  totalDurationMs?: number;
 }
 
 const VALID_WORK_TYPES = [
@@ -100,10 +110,11 @@ export async function processWorkImport(
   imageBuffer: Buffer,
   options: { skipAiTagging?: boolean } = {}
 ): Promise<ImportResult> {
+  const importStart = Date.now();
+  const steps: ImportStepLog[] = [];
   const workId = uuidv4();
   const sourceType = (row.source_type || "gp_original").trim().toLowerCase();
   const isPublicDomain = sourceType !== "gp_original";
-  // Only auto-generate GP SKU for GP original works, not public domain imports
   const gpSku = row.gp_sku?.trim() || (isPublicDomain ? null : await generateGpSku());
   const dims = parseDimensions(row.dimensions);
   const orientation = determineOrientation(dims);
@@ -111,7 +122,6 @@ export async function processWorkImport(
     (row.gp_exclusive || "").trim().toLowerCase()
   );
 
-  // Compute max print inches from source image or provided values
   let maxPrintInches: { width: number; height: number } | null = null;
   if (row.max_print_width && row.max_print_height) {
     maxPrintInches = {
@@ -121,162 +131,271 @@ export async function processWorkImport(
   }
 
   try {
-    // Compute max print inches from source image if not already provided
-    if (!maxPrintInches) {
-      const metadata = await sharp(imageBuffer).metadata();
-      if (metadata.width && metadata.height) {
-        maxPrintInches = {
-          width: Math.round((metadata.width / 300) * 10) / 10,
-          height: Math.round((metadata.height / 300) * 10) / 10,
-        };
+    // Step 1: Image processing (sharp resize + max print calc)
+    let stepStart = Date.now();
+    let sourceBuffer: Buffer;
+    let thumbnailBuffer: Buffer;
+    let previewBuffer: Buffer;
+    try {
+      if (!maxPrintInches) {
+        const metadata = await sharp(imageBuffer).metadata();
+        if (metadata.width && metadata.height) {
+          maxPrintInches = {
+            width: Math.round((metadata.width / 300) * 10) / 10,
+            height: Math.round((metadata.height / 300) * 10) / 10,
+          };
+        }
       }
+      sourceBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
+      thumbnailBuffer = await sharp(imageBuffer)
+        .resize(600, null, { withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      previewBuffer = await sharp(imageBuffer)
+        .resize(1200, null, { withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      steps.push({
+        step: "Image processing",
+        status: "success",
+        durationMs: Date.now() - stepStart,
+        detail: maxPrintInches
+          ? `${maxPrintInches.width}" × ${maxPrintInches.height}" max print`
+          : undefined,
+      });
+    } catch (err) {
+      steps.push({
+        step: "Image processing",
+        status: "failed",
+        durationMs: Date.now() - stepStart,
+        detail: err instanceof Error ? err.message : "Unknown error",
+      });
+      return {
+        success: false,
+        gpSku: gpSku || "N/A",
+        title: row.title.trim(),
+        artistName: row.artist_name.trim(),
+        error: `Image processing failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        failedStep: "Image processing",
+        steps,
+        totalDurationMs: Date.now() - importStart,
+      };
     }
 
-    // Generate image variants with sharp
-    const sourceBuffer = await sharp(imageBuffer)
-      .jpeg({ quality: 85 })
-      .toBuffer();
-
-    const thumbnailBuffer = await sharp(imageBuffer)
-      .resize(600, null, { withoutEnlargement: true })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-
-    const previewBuffer = await sharp(imageBuffer)
-      .resize(1200, null, { withoutEnlargement: true })
-      .jpeg({ quality: 85 })
-      .toBuffer();
-
-    // Upload to S3
+    // Step 2: S3 upload
+    stepStart = Date.now();
     let imageUrlSource: string;
     let imageUrlThumbnail: string;
     let imageUrlPreview: string;
-
-    if (process.env.AWS_S3_BUCKET && process.env.AWS_ACCESS_KEY_ID) {
-      [imageUrlSource, imageUrlThumbnail, imageUrlPreview] = await Promise.all([
-        uploadToS3(getImageKey(workId, "source"), sourceBuffer, "image/jpeg"),
-        uploadToS3(
-          getImageKey(workId, "thumbnail"),
-          thumbnailBuffer,
-          "image/jpeg"
-        ),
-        uploadToS3(
-          getImageKey(workId, "preview"),
-          previewBuffer,
-          "image/jpeg"
-        ),
-      ]);
-    } else {
-      // No S3 configured — use placeholder URLs
-      const encodedTitle = encodeURIComponent(row.title.trim());
-      imageUrlSource = `https://placehold.co/1200x1600/f5f5f5/999?text=${encodedTitle}`;
-      imageUrlThumbnail = `https://placehold.co/300x400/f5f5f5/999?text=${encodedTitle}`;
-      imageUrlPreview = `https://placehold.co/1200x1600/f5f5f5/999?text=${encodedTitle}`;
+    try {
+      if (process.env.AWS_S3_BUCKET && process.env.AWS_ACCESS_KEY_ID) {
+        [imageUrlSource, imageUrlThumbnail, imageUrlPreview] =
+          await Promise.all([
+            uploadToS3(
+              getImageKey(workId, "source"),
+              sourceBuffer,
+              "image/jpeg"
+            ),
+            uploadToS3(
+              getImageKey(workId, "thumbnail"),
+              thumbnailBuffer,
+              "image/jpeg"
+            ),
+            uploadToS3(
+              getImageKey(workId, "preview"),
+              previewBuffer,
+              "image/jpeg"
+            ),
+          ]);
+        steps.push({
+          step: "S3 upload",
+          status: "success",
+          durationMs: Date.now() - stepStart,
+          detail: "3 variants uploaded",
+        });
+      } else {
+        const encodedTitle = encodeURIComponent(row.title.trim());
+        imageUrlSource = `https://placehold.co/1200x1600/f5f5f5/999?text=${encodedTitle}`;
+        imageUrlThumbnail = `https://placehold.co/300x400/f5f5f5/999?text=${encodedTitle}`;
+        imageUrlPreview = `https://placehold.co/1200x1600/f5f5f5/999?text=${encodedTitle}`;
+        steps.push({
+          step: "S3 upload",
+          status: "skipped",
+          durationMs: Date.now() - stepStart,
+          detail: "No S3 configured — using placeholders",
+        });
+      }
+    } catch (err) {
+      steps.push({
+        step: "S3 upload",
+        status: "failed",
+        durationMs: Date.now() - stepStart,
+        detail: err instanceof Error ? err.message : "Unknown error",
+      });
+      return {
+        success: false,
+        gpSku: gpSku || "N/A",
+        title: row.title.trim(),
+        artistName: row.artist_name.trim(),
+        error: `S3 upload failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        failedStep: "S3 upload",
+        steps,
+        totalDurationMs: Date.now() - importStart,
+      };
     }
 
-    // AI tagging (if OpenAI key is set and not skipped)
+    // Step 3: AI tagging + embedding
+    stepStart = Date.now();
     let aiTagsHero: string[] = [];
     let aiTagsHidden: string[] = [];
     let embeddingVector: number[] | null = null;
 
     if (process.env.OPENAI_API_KEY && !options.skipAiTagging) {
       try {
-        // Convert image to base64 data URL for GPT-4V
         const base64 = previewBuffer.toString("base64");
         const dataUrl = `data:image/jpeg;base64,${base64}`;
-
         const tags = await generateArtworkTags(dataUrl);
         aiTagsHero = tags.heroTags;
         aiTagsHidden = tags.hiddenTags;
-
-        // Generate embedding from concatenated tags
         const tagText = [...aiTagsHero, ...aiTagsHidden].join(", ");
         embeddingVector = await generateEmbedding(tagText);
+        steps.push({
+          step: "AI tagging",
+          status: "success",
+          durationMs: Date.now() - stepStart,
+          detail: `${aiTagsHero.length} hero + ${aiTagsHidden.length} hidden tags`,
+        });
       } catch (aiError) {
         console.error(`AI tagging failed for ${row.title}:`, aiError);
-        // Continue without AI tags — can be regenerated later
+        steps.push({
+          step: "AI tagging",
+          status: "failed",
+          durationMs: Date.now() - stepStart,
+          detail: `Non-fatal: ${aiError instanceof Error ? aiError.message : "Unknown error"}`,
+        });
+        // Continue without AI tags
       }
+    } else {
+      steps.push({
+        step: "AI tagging",
+        status: "skipped",
+        durationMs: Date.now() - stepStart,
+        detail: options.skipAiTagging ? "Skipped by user" : "No API key",
+      });
     }
 
-    // Extract dominant colors
+    // Step 4: Color extraction
+    stepStart = Date.now();
     let dominantColors: { r: number; g: number; b: number }[] = [];
     try {
       const { dominant } = await sharp(imageBuffer).stats();
-      dominantColors = [
-        { r: dominant.r, g: dominant.g, b: dominant.b },
-      ];
+      dominantColors = [{ r: dominant.r, g: dominant.g, b: dominant.b }];
+      steps.push({
+        step: "Color extraction",
+        status: "success",
+        durationMs: Date.now() - stepStart,
+      });
     } catch {
-      // Color extraction is optional
+      steps.push({
+        step: "Color extraction",
+        status: "skipped",
+        durationMs: Date.now() - stepStart,
+        detail: "Could not extract colors",
+      });
     }
 
-    // Insert into database
-    if (embeddingVector) {
-      // Use raw SQL for embedding vector insert (Prisma doesn't support vector type directly)
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO works (
-          id, gp_sku, title, artist_name, source_type, source_id, source_label,
-          dimensions_inches, max_print_inches, orientation, work_type,
-          retailer_exclusive, artist_exclusive_to, gp_exclusive,
-          image_url_thumbnail, image_url_preview, image_url_source,
-          ai_tags_hero, ai_tags_hidden, dominant_colors, embedding,
-          status, created_at, updated_at
-        ) VALUES (
-          $1::uuid, $2, $3, $4, $5::"SourceType", $6, $7,
-          $8::jsonb, $9::jsonb, $10::"Orientation", $11::"WorkType",
-          $12, $13, $14,
-          $15, $16, $17,
-          $18::text[], $19::text[], $20::jsonb, $21::vector,
-          'active'::"WorkStatus", NOW(), NOW()
-        )`,
-        workId,
-        gpSku || null,
-        row.title.trim(),
-        row.artist_name.trim(),
-        sourceType,
-        row.source_id?.trim() || null,
-        row.source?.trim() || null,
-        dims ? JSON.stringify(dims) : null,
-        maxPrintInches ? JSON.stringify(maxPrintInches) : null,
-        orientation,
-        row.work_type.trim().toLowerCase(),
-        row.retailer_exclusive?.trim() || null,
-        row.artist_exclusive_to?.trim() || null,
-        gpExclusive,
-        imageUrlThumbnail,
-        imageUrlPreview,
-        imageUrlSource,
-        aiTagsHero,
-        aiTagsHidden,
-        JSON.stringify(dominantColors),
-        `[${embeddingVector.join(",")}]`
-      );
-    } else {
-      // No embedding — use Prisma directly
-      await prisma.work.create({
-        data: {
-          id: workId,
-          gpSku: gpSku || undefined,
-          title: row.title.trim(),
-          artistName: row.artist_name.trim(),
-          sourceType: sourceType as "gp_original",
-          sourceId: row.source_id?.trim() || null,
-          sourceLabel: row.source?.trim() || null,
-          workType: row.work_type.trim().toLowerCase() as "synograph",
-          dimensionsInches: dims || undefined,
-          maxPrintInches: maxPrintInches || undefined,
+    // Step 5: Database insert
+    stepStart = Date.now();
+    try {
+      if (embeddingVector) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO works (
+            id, gp_sku, title, artist_name, source_type, source_id, source_label,
+            dimensions_inches, max_print_inches, orientation, work_type,
+            retailer_exclusive, artist_exclusive_to, gp_exclusive,
+            image_url_thumbnail, image_url_preview, image_url_source,
+            ai_tags_hero, ai_tags_hidden, dominant_colors, embedding,
+            status, created_at, updated_at
+          ) VALUES (
+            $1::uuid, $2, $3, $4, $5::"SourceType", $6, $7,
+            $8::jsonb, $9::jsonb, $10::"Orientation", $11::"WorkType",
+            $12, $13, $14,
+            $15, $16, $17,
+            $18::text[], $19::text[], $20::jsonb, $21::vector,
+            'active'::"WorkStatus", NOW(), NOW()
+          )`,
+          workId,
+          gpSku || null,
+          row.title.trim(),
+          row.artist_name.trim(),
+          sourceType,
+          row.source_id?.trim() || null,
+          row.source?.trim() || null,
+          dims ? JSON.stringify(dims) : null,
+          maxPrintInches ? JSON.stringify(maxPrintInches) : null,
           orientation,
-          retailerExclusive: row.retailer_exclusive?.trim() || null,
-          artistExclusiveTo: row.artist_exclusive_to?.trim() || null,
+          row.work_type.trim().toLowerCase(),
+          row.retailer_exclusive?.trim() || null,
+          row.artist_exclusive_to?.trim() || null,
           gpExclusive,
           imageUrlThumbnail,
           imageUrlPreview,
           imageUrlSource,
           aiTagsHero,
           aiTagsHidden,
-          dominantColors: dominantColors.length > 0 ? dominantColors : undefined,
-          status: "active",
-        },
+          JSON.stringify(dominantColors),
+          `[${embeddingVector.join(",")}]`
+        );
+      } else {
+        await prisma.work.create({
+          data: {
+            id: workId,
+            gpSku: gpSku || undefined,
+            title: row.title.trim(),
+            artistName: row.artist_name.trim(),
+            sourceType: sourceType as "gp_original",
+            sourceId: row.source_id?.trim() || null,
+            sourceLabel: row.source?.trim() || null,
+            workType: row.work_type.trim().toLowerCase() as "synograph",
+            dimensionsInches: dims || undefined,
+            maxPrintInches: maxPrintInches || undefined,
+            orientation,
+            retailerExclusive: row.retailer_exclusive?.trim() || null,
+            artistExclusiveTo: row.artist_exclusive_to?.trim() || null,
+            gpExclusive,
+            imageUrlThumbnail,
+            imageUrlPreview,
+            imageUrlSource,
+            aiTagsHero,
+            aiTagsHidden,
+            dominantColors:
+              dominantColors.length > 0 ? dominantColors : undefined,
+            status: "active",
+          },
+        });
+      }
+      steps.push({
+        step: "Database insert",
+        status: "success",
+        durationMs: Date.now() - stepStart,
       });
+    } catch (err) {
+      steps.push({
+        step: "Database insert",
+        status: "failed",
+        durationMs: Date.now() - stepStart,
+        detail: err instanceof Error ? err.message : "Unknown error",
+      });
+      return {
+        success: false,
+        gpSku: gpSku || "N/A",
+        title: row.title.trim(),
+        artistName: row.artist_name.trim(),
+        error: `Database insert failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        failedStep: "Database insert",
+        steps,
+        totalDurationMs: Date.now() - importStart,
+      };
     }
 
     return {
@@ -284,6 +403,8 @@ export async function processWorkImport(
       gpSku: gpSku || "—",
       title: row.title.trim(),
       artistName: row.artist_name.trim(),
+      steps,
+      totalDurationMs: Date.now() - importStart,
     };
   } catch (error) {
     console.error(`Failed to import "${row.title}":`, error);
@@ -293,6 +414,9 @@ export async function processWorkImport(
       title: row.title.trim(),
       artistName: row.artist_name.trim(),
       error: error instanceof Error ? error.message : "Unknown error",
+      failedStep: "Unknown",
+      steps,
+      totalDurationMs: Date.now() - importStart,
     };
   }
 }

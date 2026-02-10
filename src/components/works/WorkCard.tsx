@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Plus, Check } from "lucide-react";
+import { useCart } from "@/components/cart/CartContext";
 
 interface WorkCardProps {
   work: {
@@ -21,29 +22,39 @@ interface WorkCardProps {
     gpExclusive?: boolean;
   };
   onSelect?: (work: WorkCardProps["work"]) => void;
-  selectMode?: boolean;
-  isSelected?: boolean;
   compact?: boolean;
 }
 
 export default function WorkCard({
   work,
   onSelect,
-  selectMode = false,
-  isSelected = false,
   compact = false,
 }: WorkCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const { addItem, removeItem, isInCart } = useCart();
 
   const dims = work.dimensionsInches as { width: number; height: number } | null;
   const maxPrint = work.maxPrintInches as { width: number; height: number } | null;
+  const inCart = isInCart(work.id);
+
+  function handleCartToggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (inCart) {
+      removeItem(work.id);
+    } else {
+      addItem({
+        workId: work.id,
+        title: work.title,
+        artistName: work.artistName,
+        imageUrlThumbnail: work.imageUrlThumbnail,
+      });
+    }
+  }
 
   return (
     <button
       onClick={() => onSelect?.(work)}
-      className={`group text-left w-full focus:outline-none ${
-        selectMode && isSelected ? "ring-2 ring-black ring-offset-2 rounded-lg" : ""
-      }`}
+      className="group text-left w-full focus:outline-none"
     >
       {/* Image */}
       <div className={`relative overflow-hidden rounded-lg bg-muted ${compact ? "mb-2" : "mb-3"}`}>
@@ -62,20 +73,24 @@ export default function WorkCard({
           <div className="aspect-[3/4] bg-muted animate-pulse" />
         )}
 
-        {/* Select mode checkbox */}
-        {selectMode && (
-          <div className="absolute top-2 left-2 z-10">
-            <div
-              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-                isSelected
-                  ? "bg-black border-black text-white"
-                  : "bg-white/80 border-gray-300 backdrop-blur-sm"
-              }`}
-            >
-              {isSelected && <Check className="w-4 h-4" />}
-            </div>
+        {/* Cart toggle button */}
+        <div
+          className={`absolute top-2 left-2 z-10 transition-opacity ${
+            inCart ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <div
+            onClick={handleCartToggle}
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-sm ${
+              inCart
+                ? "bg-black text-white"
+                : "bg-white/90 text-gray-600 hover:bg-white hover:text-black backdrop-blur-sm"
+            }`}
+            title={inCart ? "Remove from selection" : "Add to selection"}
+          >
+            {inCart ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
           </div>
-        )}
+        </div>
 
         {/* Badges */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
@@ -92,7 +107,7 @@ export default function WorkCard({
         </div>
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
       </div>
 
       {/* Info */}
