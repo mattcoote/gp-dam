@@ -554,18 +554,8 @@ function HomeContent() {
           )}
         </div>
 
-        {/* Quick Filters — GP Exclusive pinned first, then top tags */}
+        {/* Quick Filters — top tags, then GP Exclusive set apart with gold accent */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <button
-            onClick={() => toggleQuickFilter(GP_EXCLUSIVE_FILTER)}
-            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-              activeFilter === GP_EXCLUSIVE_FILTER
-                ? "border-foreground bg-foreground text-white"
-                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-            }`}
-          >
-            GP Exclusive
-          </button>
           {topTags.slice(0, MAX_TAG_FILTERS).map((t) => (
             <button
               key={t.tag}
@@ -579,6 +569,17 @@ function HomeContent() {
               {t.label}
             </button>
           ))}
+          <span className="mx-1 h-5 w-px bg-border" />
+          <button
+            onClick={() => toggleQuickFilter(GP_EXCLUSIVE_FILTER)}
+            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeFilter === GP_EXCLUSIVE_FILTER
+                ? "border-amber-500 bg-amber-500 text-white"
+                : "border-amber-400 text-amber-700 hover:bg-amber-50 hover:border-amber-500"
+            }`}
+          >
+            GP Exclusive
+          </button>
         </div>
       </section>
 
