@@ -1,6 +1,6 @@
 # GP DAM - Project Status
 
-## Last Updated: Feb 9, 2026 (Session 4)
+## Last Updated: Feb 9, 2026 (Session 5)
 
 ---
 
@@ -15,9 +15,29 @@ A Digital Asset Management system for **General Public** (art print company), re
 ## Current State: Deployed + Working
 
 ### What's Done
-- **Catalog homepage** with search, filters (orientation, work type, search tags, GP Exclusive), responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
+- **Catalog homepage** with search, quick filters, collapsible filter sidebar, infinite scroll, responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
+- **Infinite scroll** — IntersectionObserver with 600px rootMargin, 48 items per page, "Showing X of Y" counter, manual "Load more" fallback button
+- **Quick filter buttons** — GP Exclusive (always pinned first) + top 6 tags dynamically populated from actual catalog data via `/api/works/top-tags`. Tag filters use search-based matching (substring within tag arrays) so tags like "photography" work even if `workType` is still "reductive"
+- **Collapsible filter sidebar** — toggle via toolbar button with active filter count badge
+  - **Desktop:** 260px fixed-width sticky sidebar on left, grid flexes to fill remaining space, scrollable within viewport
+  - **Mobile (< 768px):** slide-over overlay from left with backdrop, close via X button or Escape key
+  - **Sections (accordion-style, each collapsible):**
+    - Artist — searchable dropdown from `/api/works/artists`
+    - Work Type — checkboxes (Synograph, Work on Paper, Work on Canvas, Photography, Reductive)
+    - Orientation — checkboxes (Landscape, Portrait, Square)
+    - Source — checkboxes (GP Original, Rijksmuseum, Getty, Met, Yale, NGA, Cleveland) — collapsed by default
+    - Retailer — checkboxes from `/api/works/retailers` (only shown if retailers exist) — collapsed by default
+    - Style & Subject — clickable tag pills from top 15 AI tags
+  - "Clear all" button resets all sidebar filters
+  - All checkbox filters support multi-select via comma-separated URL params
+- **Search** — raw SQL substring matching within tag arrays (`array_to_string()` + `ILIKE`), AND logic across multiple search terms, searches title, artist, hero tags, and hidden tags. Searches like "jewel tones" or "Monet landscape" now work.
 - **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons) with position indicator
-- **AI tagging** with OpenAI GPT-4o vision (10 hero + 50 hidden tags per work)
+- **AI tagging** with OpenAI GPT-4o vision — enhanced prompt with:
+  - 10 hero tags (medium, subject matter, mood, style)
+  - 50 hidden tags covering: artist style references ("looks like Monet"), art movements ("impressionism", "brutalism"), color palette, composition, technique, historical period, cultural context, emotional tone, setting, room fit, seasonal, abstract concepts
+  - Medium detection: photograph, painting, drawing, print, sculpture, mixed_media, digital
+  - Auto-corrects `workType` based on detected medium (photograph→photography, painting→work_on_canvas, drawing→work_on_paper) when current type is "reductive"
+- **Re-tag endpoint** (`/api/works/retag`) — batch re-tags works with the enhanced AI prompt, updates hero/hidden tags + embeddings, auto-corrects workType based on detected medium. Processes in configurable batch sizes.
 - **Vector/semantic search** with text-embedding-3-large (1536-dim pgvector embeddings)
 - **Password-protected admin** (`ADMIN_PASSWORD` env var, session-based)
 - **Admin panel** with 5 tabs:
@@ -26,6 +46,7 @@ A Digital Asset Management system for **General Public** (art print company), re
   - **Bulk Import** — CSV + ZIP upload (CSV is optional; images-only derives titles from filenames)
   - **Update Metadata** — CSV-only upload to update existing works (matches by GP SKU first, fallback to filename)
   - **Public Domain** — search 6 museum APIs, preview results with pixel dimensions + max print size, select & import, download source images directly from museums
+- **Multi-select bulk actions** in admin — checkbox selection on works table with select-all/none/some states. Bulk action bar: Re-tag Selected, Archive Selected, Restore Selected, Delete Selected (double confirmation). Retag progress/results display with work type change reporting.
 - **6 museum integrations** for public domain artwork:
   - Rijksmuseum, Getty Museum, The Met, Yale Art Gallery, National Gallery of Art, Cleveland Museum of Art
   - Each with search, preview (pixel dims + max print inches), select & import, direct source image link (opens in new tab)
@@ -54,7 +75,7 @@ A Digital Asset Management system for **General Public** (art print company), re
 - **Image variants:** source (full), preview (1200px), thumbnail (600px)
 - **GP branding** with Oswald 700 wordmark across all pages
 - **Deployed to Vercel** with all env vars configured
-- **20 works** in database (12 seeded + 8 test imported with AI tags)
+- **Several hundred works** imported into the database with AI tagging
 
 ### What's NOT Done Yet
 - **Full catalog import** (real production images)
@@ -184,12 +205,16 @@ printf 'value' | vercel env add VAR_NAME production
 
 **Tables:** works, users, accounts, sessions, verification_tokens, selections, selection_items, search_queries
 
-**Key Work model fields added (Sessions 2-4):**
+**Key Work model fields added (Sessions 2-5):**
 - `source_label` — Human-readable source name (e.g., "Cleveland Museum of Art", "General Public")
 - `max_print_inches` — JSON `{ width, height }` computed from actual image at 300 DPI
 - `source_type` enum — includes `cleveland` (added Session 3)
 - `gp_exclusive` — Boolean flag for GP exclusive works (added Session 4)
 - GP SKU is now nullable (null for public domain imports)
+- `ai_tags_hero` — String[] of 10 primary tags (searched via raw SQL substring matching)
+- `ai_tags_hidden` — String[] of 50 extended search tags (artist references, movements, etc.)
+- `embedding` — pgvector(1536) for semantic search
+- `retailer_exclusive` — Nullable string for retailer-specific works (filterable in sidebar)
 
 **To reset/reseed:**
 ```bash
@@ -209,11 +234,11 @@ gp-dam/
 │   └── seed.mjs                   # Sample data seeder (12 works)
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx               # Homepage - catalog with search + masonry grid + bulk select mode
+│   │   ├── page.tsx               # Homepage - catalog with search, infinite scroll, filter sidebar, quick filters
 │   │   ├── layout.tsx             # Root layout (Inter + Oswald fonts)
 │   │   ├── globals.css            # Theme colors + Tailwind v4
 │   │   ├── admin/
-│   │   │   └── page.tsx           # Admin - 5 tabs: manage works, add work, bulk import, update metadata, public domain
+│   │   │   └── page.tsx           # Admin - 5 tabs: manage works (bulk actions), add work, bulk import, update metadata, public domain
 │   │   ├── selections/
 │   │   │   └── [id]/page.tsx      # Selection detail - drag reorder, notes, share, PDF/Excel/PPT export
 │   │   ├── share/
@@ -221,9 +246,13 @@ gp-dam/
 │   │   └── api/
 │   │       ├── admin/auth/route.ts                  # Password verification
 │   │       ├── auth/[...nextauth]/route.ts          # OAuth endpoint
-│   │       ├── works/route.ts                       # Works list (search, filter, pagination)
+│   │       ├── works/route.ts                       # Works list (search, multi-value filters, pagination)
 │   │       ├── works/[id]/route.ts                  # Single work (GET, PATCH, DELETE)
 │   │       ├── works/[id]/download/route.ts         # Download source image from S3
+│   │       ├── works/artists/route.ts               # Distinct artist names for filter dropdown
+│   │       ├── works/retailers/route.ts             # Distinct retailer values for filter checkboxes
+│   │       ├── works/top-tags/route.ts              # Top 20 hero tags by frequency for dynamic filters
+│   │       ├── works/retag/route.ts                 # Batch re-tag with AI (tags + embeddings + workType)
 │   │       ├── works/update-metadata/route.ts       # CSV metadata update for existing works
 │   │       ├── upload/route.ts                      # Import: CSV+ZIP or images-only
 │   │       ├── rijksmuseum/{search,import}/route.ts  # Rijksmuseum search + import
@@ -335,8 +364,8 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 ## What's Next
 
 ### Immediate
-1. **Import full catalog** with real production images + CSV
-2. **Custom domain** — add in Vercel dashboard (Settings > Domains)
+1. **Custom domain** — add in Vercel dashboard (Settings > Domains)
+2. **Continue importing** — catalog is growing, keep adding works
 
 ### Soon
 3. **Date-range filter** — `createdAt` is tracked on all works, ready for UI filter
@@ -344,7 +373,7 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 
 ### Later
 5. **CloudFront CDN** for faster image delivery
-6. **Advanced search** — boolean operators, semantic similarity
+6. **Semantic similarity search** — "find works similar to this one" using pgvector cosine distance
 
 ---
 
@@ -361,5 +390,9 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 9. **S3 direct URLs** (no CloudFront) for V1 simplicity
 10. **Selection drawer model** — replaced bottom selection bar + bulk select mode with cart-style pattern (header icon, per-card toggle, slide-out drawer with View/Edit/PDF/Clear actions)
 11. **Images-only upload** — CSV optional, titles derived from filenames, metadata updatable later
-12. **Public domain = Reductive** — all museum imports use `work_type: "reductive"` (Reductive on Paper/Canvas)
+12. **Public domain = Reductive** — all museum imports use `work_type: "reductive"` (Reductive on Paper/Canvas), but AI tagging auto-corrects based on detected medium
 13. **Free-text Source field** — admin Add Work form uses text input for source (not enum dropdown)
+14. **Dynamic filter buttons** — quick filter buttons populated from actual top tags in the catalog (not hardcoded), ensuring filters always reflect what's in the collection
+15. **Raw SQL for tag search** — Prisma's `has` only does exact array element matches; raw SQL `array_to_string() + ILIKE` enables substring matching within tags (e.g., "jewel" matches a tag "jewel tones")
+16. **Sidebar + quick filters coexist** — sidebar structured filters (work type, orientation, source, retailer, artist) combine with quick filter tag buttons via AND logic
+17. **Re-tag over retrain** — existing works can be re-tagged with enhanced AI prompts without re-importing; retag also regenerates embeddings and auto-corrects workType
