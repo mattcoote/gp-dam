@@ -15,9 +15,10 @@ A Digital Asset Management system for **General Public** (art print company), re
 ## Current State: Deployed + Working
 
 ### What's Done
-- **Catalog homepage** with search, quick filters, collapsible filter sidebar, infinite scroll, responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
+- **Catalog homepage** with search, quick filters, collapsible filter sidebar, infinite scroll, responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, labels toggle, GP branding, centered bold "ART CATALOG" header
 - **Infinite scroll** — IntersectionObserver with 600px rootMargin, 48 items per page, "Showing X of Y" counter, manual "Load more" fallback button
-- **Quick filter buttons** — GP Exclusive (always pinned first) + top 6 tags dynamically populated from actual catalog data via `/api/works/top-tags`. Tag filters use search-based matching (substring within tag arrays) so tags like "photography" work even if `workType` is still "reductive"
+- **Quick filter buttons** — top 6 tags dynamically populated from actual catalog data via `/api/works/top-tags`, followed by GP Exclusive set apart with a gold/amber accent and thin divider. Tag filters use search-based matching (substring within tag arrays) so tags like "photography" work even if `workType` is still "reductive"
+- **Labels toggle** — toolbar button to show/hide GP Exclusive and retailer badges on card thumbnails for a cleaner browsing view. On by default.
 - **Collapsible filter sidebar** — toggle via toolbar button with active filter count badge
   - **Desktop:** 260px fixed-width sticky sidebar on left, grid flexes to fill remaining space, scrollable within viewport
   - **Mobile (< 768px):** slide-over overlay from left with backdrop, close via X button or Escape key
@@ -54,7 +55,7 @@ A Digital Asset Management system for **General Public** (art print company), re
 - **Source tracking** — `sourceType` enum + `sourceLabel` human-readable name
 - **Max print size** — computed from actual downloaded image at 300 DPI, displayed in DAM viewer + search results
 - **GP SKU** — optional, manually assigned (no auto-generation)
-- **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards, quick filter bubble on homepage
+- **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards (toggleable via Labels button), gold-accented quick filter button on homepage
 - **Source image access** — direct links to full-res museum source images (opens in new tab) on search cards + download from S3 on works table
 - **Excel import template** — generated via `scripts/generate-csv-template.mjs` with validation dropdowns, example rows, and instructions sheet
 - **Selection system** (cart UX pattern, replaces old selection bar):
