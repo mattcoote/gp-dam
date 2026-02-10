@@ -32,7 +32,7 @@ A Digital Asset Management system for **General Public** (art print company), re
   - "Clear all" button resets all sidebar filters
   - All checkbox filters support multi-select via comma-separated URL params
 - **Search** — raw SQL substring matching within tag arrays (`array_to_string()` + `ILIKE`), AND logic across multiple search terms, searches title, artist, hero tags, and hidden tags. Searches like "jewel tones" or "Monet landscape" now work.
-- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons) with position indicator
+- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons)
 - **AI tagging** with OpenAI GPT-4o vision — enhanced prompt with:
   - 10 hero tags (medium, subject matter, mood, style)
   - 50 hidden tags covering: artist style references ("looks like Monet"), art movements ("impressionism", "brutalism"), color palette, composition, technique, historical period, cultural context, emotional tone, setting, room fit, seasonal, abstract concepts
@@ -53,7 +53,7 @@ A Digital Asset Management system for **General Public** (art print company), re
   - Each with search, preview (pixel dims + max print inches), select & import, direct source image link (opens in new tab)
   - Min short side slider filter (0-36") across all museum grids
 - **Source tracking** — `sourceType` enum + `sourceLabel` human-readable name
-- **Max print size** — computed from actual downloaded image at 300 DPI, displayed in DAM viewer + search results
+- **Max print size** — computed from actual downloaded image at 300 DPI, displayed in work detail modal + admin/museum search results (not shown on catalog grid cards)
 - **GP SKU** — optional, manually assigned (no auto-generation)
 - **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards (toggleable via Labels button), gold-accented quick filter button on homepage
 - **Source image access** — direct links to full-res museum source images (opens in new tab) on search cards + download from S3 on works table
@@ -351,7 +351,7 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 - **Drawer actions** — "View Selection" (opens public share page), "Edit & Share" (opens selection detail page with reorder/notes/exports), "PDF" (direct download), "Clear All"
 - **Selection detail page** — drag-to-reorder tiles, per-item notes, selection-level notes, editable name, PDF/Excel/PPT export, share link copy, delete
 - **Share** — each selection has a share token for public read-only link with masonry layout
-- **Arrow navigation** — left/right arrow keys or chevron buttons flip through works in the detail modal, with position indicator ("3 / 47") and wrap-around
+- **Arrow navigation** — left/right arrow keys or chevron buttons flip through works in the detail modal with wrap-around
 
 ---
 
