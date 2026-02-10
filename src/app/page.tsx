@@ -35,14 +35,9 @@ interface Pagination {
   totalPages: number;
 }
 
-const QUICK_FILTERS = [
-  { label: "GP Exclusive", param: "gpExclusive", value: "true" },
-  { label: "Landscapes", param: "orientation", value: "landscape" },
-  { label: "Portraits", param: "orientation", value: "portrait" },
-  { label: "Abstract", param: "search", value: "abstract" },
-  { label: "Photography", param: "workType", value: "photography" },
-  { label: "Botanical", param: "search", value: "botanical" },
-];
+// GP Exclusive is always pinned first
+const GP_EXCLUSIVE_FILTER = { label: "GP Exclusive", type: "gpExclusive" as const };
+const MAX_TAG_FILTERS = 6;
 
 function HomeContent() {
   const [works, setWorks] = useState<Work[]>([]);
@@ -59,12 +54,17 @@ function HomeContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [artists, setArtists] = useState<string[]>([]);
+  const [topTags, setTopTags] = useState<{ tag: string; label: string; count: number }[]>([]);
 
-  // Fetch distinct artists for filter dropdown
+  // Fetch distinct artists and top tags for filter dropdowns
   useEffect(() => {
     fetch("/api/works/artists")
       .then((res) => res.json())
       .then((data) => setArtists(data.artists || []))
+      .catch(() => {});
+    fetch("/api/works/top-tags")
+      .then((res) => res.json())
+      .then((data) => setTopTags(data.topTags || []))
       .catch(() => {});
   }, []);
 
@@ -90,16 +90,14 @@ function HomeContent() {
 
       // Apply active quick filter
       if (activeFilter) {
-        const filter = QUICK_FILTERS.find((f) => f.label === activeFilter);
-        if (filter) {
-          if (filter.param === "search") {
-            const combined = debouncedSearch
-              ? `${debouncedSearch} ${filter.value}`
-              : filter.value;
-            params.set("search", combined);
-          } else {
-            params.set(filter.param, filter.value);
-          }
+        if (activeFilter === GP_EXCLUSIVE_FILTER.label) {
+          params.set("gpExclusive", "true");
+        } else {
+          // Tag-based filter — combine with search
+          const combined = debouncedSearch
+            ? `${debouncedSearch} ${activeFilter.toLowerCase()}`
+            : activeFilter.toLowerCase();
+          params.set("search", combined);
         }
       }
 
@@ -225,19 +223,32 @@ function HomeContent() {
           )}
         </div>
 
-        {/* Quick Filters */}
+        {/* Quick Filters — GP Exclusive pinned first, then top tags from the catalog */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {QUICK_FILTERS.map((filter) => (
+          {/* GP Exclusive — always visible */}
+          <button
+            onClick={() => toggleFilter(GP_EXCLUSIVE_FILTER.label)}
+            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+              activeFilter === GP_EXCLUSIVE_FILTER.label
+                ? "border-foreground bg-foreground text-white"
+                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+            }`}
+          >
+            {GP_EXCLUSIVE_FILTER.label}
+          </button>
+
+          {/* Dynamic tag filters from catalog */}
+          {topTags.slice(0, MAX_TAG_FILTERS).map((t) => (
             <button
-              key={filter.label}
-              onClick={() => toggleFilter(filter.label)}
+              key={t.tag}
+              onClick={() => toggleFilter(t.label)}
               className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                activeFilter === filter.label
+                activeFilter === t.label
                   ? "border-foreground bg-foreground text-white"
                   : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
               }`}
             >
-              {filter.label}
+              {t.label}
             </button>
           ))}
 
@@ -311,15 +322,16 @@ function HomeContent() {
         ) : works.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-muted-foreground">
-              {searchQuery || activeFilter
+              {searchQuery || activeFilter || artistFilter
                 ? "No works match your search."
                 : "No works in the catalog yet."}
             </p>
-            {(searchQuery || activeFilter) && (
+            {(searchQuery || activeFilter || artistFilter) && (
               <button
                 onClick={() => {
                   setSearchQuery("");
                   setActiveFilter(null);
+                  setArtistFilter("");
                 }}
                 className="mt-3 text-sm text-foreground underline"
               >
