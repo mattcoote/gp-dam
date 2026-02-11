@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createRequire } from "node:module";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -26,7 +27,10 @@ export async function GET(
       );
     }
 
-    const { default: PptxGenJS } = await import("pptxgenjs");
+    // Use createRequire to force CJS loading — Vercel's Turbopack
+    // externalizes pptxgenjs but fails to load the ESM entry point
+    const require = createRequire(import.meta.url);
+    const PptxGenJS = require("pptxgenjs");
     const pptx = new PptxGenJS();
     pptx.author = "General Public";
     pptx.title = selection.name;
