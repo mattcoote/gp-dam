@@ -258,11 +258,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errStack = error instanceof Error ? error.stack : undefined;
-    console.error("PPT export error:", errMsg, errStack);
+    console.error("PPT export error:", error);
     return NextResponse.json(
-      { error: "Failed to generate PowerPoint", detail: errMsg, stack: errStack },
+      { error: "Failed to generate PowerPoint" },
       { status: 500 }
     );
   }
