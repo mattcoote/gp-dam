@@ -1,6 +1,6 @@
 # GP DAM - Project Status
 
-## Last Updated: Feb 11, 2026 (Session 5 — Batch Upload)
+## Last Updated: Feb 11, 2026 (Session 6 — Export Fixes)
 
 ---
 
@@ -53,6 +53,10 @@ A Digital Asset Management system for **General Public** (art print company), re
 - **S3 image storage** configured (gp-dam-bucket, us-east-2, public read)
 - **Image variants:** source (full), preview (1200px), thumbnail (600px)
 - **GP branding** with Oswald 700 wordmark across all pages
+- **Export bug fixes (Session 6):**
+  - **PPT export** — fixed CJS/ESM module loading issue on Vercel (Turbopack externalizes pptxgenjs but resolved ESM entry in CJS context; fixed via `createRequire`)
+  - **Excel export** — fixed crash when selection name contains `/` or other characters illegal in Excel worksheet tab names (e.g. "Selection 2/11/2026"); now sanitized
+  - Added `jszip` and `image-size` to `serverExternalPackages` in `next.config.ts`
 - **Deployed to Vercel** with all env vars configured
 - **879 works** in database (batch upload completed Feb 11, 2026)
 - **Batch upload script** (`scripts/batch-upload.mjs`) for CSV + image folder uploads to production
@@ -116,7 +120,7 @@ open http://localhost:3000
 | Images | Sharp (source, preview@1200px, thumbnail@600px) | Working |
 | PDF | PDFKit | Installed (serverExternalPackages) |
 | Excel | ExcelJS | Installed (serverExternalPackages) |
-| PowerPoint | PptxGenJS | Installed (serverExternalPackages) |
+| PowerPoint | PptxGenJS | Installed (serverExternalPackages, CJS via createRequire) |
 | CSV | PapaParse | Installed |
 | ZIP | JSZip | Installed |
 | Fonts | Inter (body) + Oswald 700 (brand wordmark) | Configured |
@@ -277,7 +281,7 @@ gp-dam/
 ├── .env                   # Environment variables (DO NOT COMMIT)
 ├── .env.example           # Template for env vars
 ├── .gitignore
-├── next.config.ts         # serverExternalPackages: pdfkit, exceljs, sharp, pptxgenjs
+├── next.config.ts         # serverExternalPackages: pdfkit, exceljs, sharp, pptxgenjs, jszip, image-size
 ├── package.json
 ├── tsconfig.json
 └── PROJECT-STATUS.md      # This file
@@ -430,6 +434,31 @@ Note: Images over 3.5MB will need to be resized first (Vercel 4.5MB payload limi
 | `/tmp/gp-dam/` | ~200 MB | Cloned repo + scripts + CSVs + logs |
 
 To reclaim ~11GB: `rm -rf /tmp/dam-large-originals /tmp/dam-images-local`
+
+---
+
+## Export Fixes — Session 6 (Feb 11, 2026)
+
+### PPT Export — Fixed
+
+**Problem:** PowerPoint export returned HTTP 500. The `pptxgenjs` library's ES module entry point (`pptxgen.es.js`) was being loaded inside a CJS context by Vercel's Turbopack runtime, causing `"Cannot use import statement outside a module"`.
+
+**Fix:** Replaced `await import("pptxgenjs")` with `createRequire(import.meta.url)` + `require("pptxgenjs")` in `/src/app/api/selections/[id]/export/ppt/route.ts`. This forces Node.js to resolve the CJS entry point (`pptxgen.cjs.js`) which works correctly in Vercel serverless.
+
+Also added `jszip` and `image-size` (pptxgenjs dependencies) to `serverExternalPackages` in `next.config.ts` to prevent bundler interference.
+
+### Excel Export — Fixed
+
+**Problem:** Excel export returned HTTP 500 when the selection name contained `/` characters (e.g. "Selection 2/11/2026"). ExcelJS throws `"Worksheet name cannot include any of the following characters: * ? : \ / [ ]"`.
+
+**Fix:** Added character sanitization in `/src/app/api/selections/[id]/export/excel/route.ts`:
+```typescript
+const safeName = selection.name.replace(/[*?:\\/\[\]]/g, "-").substring(0, 31);
+```
+
+### PDF Export — No Changes Needed
+
+PDF export was already working correctly throughout.
 
 ---
 
