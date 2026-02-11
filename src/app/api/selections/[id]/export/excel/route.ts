@@ -33,7 +33,8 @@ export async function GET(
     workbook.creator = "General Public DAM";
     workbook.created = new Date();
 
-    const sheet = workbook.addWorksheet(selection.name.substring(0, 31), {
+    const safeName = selection.name.replace(/[*?:\\/\[\]]/g, "-").substring(0, 31);
+    const sheet = workbook.addWorksheet(safeName, {
       properties: {
         defaultColWidth: 20,
       },
@@ -158,11 +159,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errStack = error instanceof Error ? error.stack : undefined;
-    console.error("Excel export error:", errMsg, errStack);
+    console.error("Excel export error:", error);
     return NextResponse.json(
-      { error: "Failed to generate Excel file", detail: errMsg, stack: errStack },
+      { error: "Failed to generate Excel file" },
       { status: 500 }
     );
   }
