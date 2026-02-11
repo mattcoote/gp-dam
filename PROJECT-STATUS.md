@@ -1,6 +1,6 @@
 # GP DAM - Project Status
 
-## Last Updated: Feb 9, 2026 (Session 5)
+## Last Updated: Feb 11, 2026 (Session 5 — Batch Upload)
 
 ---
 
@@ -15,30 +15,9 @@ A Digital Asset Management system for **General Public** (art print company), re
 ## Current State: Deployed + Working
 
 ### What's Done
-- **Catalog homepage** with search, quick filters, collapsible filter sidebar, infinite scroll, responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, labels toggle, GP branding, centered bold "ART CATALOG" header
-- **Infinite scroll** — IntersectionObserver with 600px rootMargin, 48 items per page, "Showing X of Y" counter, manual "Load more" fallback button
-- **Quick filter buttons** — top 6 tags dynamically populated from actual catalog data via `/api/works/top-tags`, followed by GP Exclusive set apart with a gold/amber accent and thin divider. Tag filters use search-based matching (substring within tag arrays) so tags like "photography" work even if `workType` is still "reductive"
-- **Labels toggle** — toolbar button to show/hide GP Exclusive and retailer badges on card thumbnails for a cleaner browsing view. On by default.
-- **Collapsible filter sidebar** — toggle via toolbar button with active filter count badge
-  - **Desktop:** 260px fixed-width sticky sidebar on left, grid flexes to fill remaining space, scrollable within viewport
-  - **Mobile (< 768px):** slide-over overlay from left with backdrop, close via X button or Escape key
-  - **Sections (accordion-style, each collapsible):**
-    - Artist — searchable dropdown from `/api/works/artists`
-    - Work Type — checkboxes (Synograph, Work on Paper, Work on Canvas, Photography, Reductive)
-    - Orientation — checkboxes (Landscape, Portrait, Square)
-    - Source — checkboxes (GP Original, Rijksmuseum, Getty, Met, Yale, NGA, Cleveland) — collapsed by default
-    - Retailer — checkboxes from `/api/works/retailers` (only shown if retailers exist) — collapsed by default
-    - Style & Subject — clickable tag pills from top 15 AI tags
-  - "Clear all" button resets all sidebar filters
-  - All checkbox filters support multi-select via comma-separated URL params
-- **Search** — raw SQL substring matching within tag arrays (`array_to_string()` + `ILIKE`), AND logic across multiple search terms, searches title, artist, hero tags, and hidden tags. Searches like "jewel tones" or "Monet landscape" now work.
-- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons)
-- **AI tagging** with OpenAI GPT-4o vision — enhanced prompt with:
-  - 10 hero tags (medium, subject matter, mood, style)
-  - 50 hidden tags covering: artist style references ("looks like Monet"), art movements ("impressionism", "brutalism"), color palette, composition, technique, historical period, cultural context, emotional tone, setting, room fit, seasonal, abstract concepts
-  - Medium detection: photograph, painting, drawing, print, sculpture, mixed_media, digital
-  - Auto-corrects `workType` based on detected medium (photograph→photography, painting→work_on_canvas, drawing→work_on_paper) when current type is "reductive"
-- **Re-tag endpoint** (`/api/works/retag`) — batch re-tags works with the enhanced AI prompt, updates hero/hidden tags + embeddings, auto-corrects workType based on detected medium. Processes in configurable batch sizes.
+- **Catalog homepage** with search, filters (orientation, work type, search tags, GP Exclusive), responsive grid layout (auto-fill left-to-right), large/small thumbnail toggle, GP branding, centered bold "ART CATALOG" header
+- **Work detail modal** with full metadata, tags, dimensions, source label, max print size, "Add to Selection" button, left/right arrow navigation (keyboard + buttons) with position indicator
+- **AI tagging** with OpenAI GPT-4o vision (10 hero + 50 hidden tags per work)
 - **Vector/semantic search** with text-embedding-3-large (1536-dim pgvector embeddings)
 - **Password-protected admin** (`ADMIN_PASSWORD` env var, session-based)
 - **Admin panel** with 5 tabs:
@@ -47,15 +26,14 @@ A Digital Asset Management system for **General Public** (art print company), re
   - **Bulk Import** — CSV + ZIP upload (CSV is optional; images-only derives titles from filenames)
   - **Update Metadata** — CSV-only upload to update existing works (matches by GP SKU first, fallback to filename)
   - **Public Domain** — search 6 museum APIs, preview results with pixel dimensions + max print size, select & import, download source images directly from museums
-- **Multi-select bulk actions** in admin — checkbox selection on works table with select-all/none/some states. Bulk action bar: Re-tag Selected, Archive Selected, Restore Selected, Delete Selected (double confirmation). Retag progress/results display with work type change reporting.
 - **6 museum integrations** for public domain artwork:
   - Rijksmuseum, Getty Museum, The Met, Yale Art Gallery, National Gallery of Art, Cleveland Museum of Art
   - Each with search, preview (pixel dims + max print inches), select & import, direct source image link (opens in new tab)
   - Min short side slider filter (0-36") across all museum grids
 - **Source tracking** — `sourceType` enum + `sourceLabel` human-readable name
-- **Max print size** — computed from actual downloaded image at 300 DPI, displayed in work detail modal + admin/museum search results (not shown on catalog grid cards)
+- **Max print size** — computed from actual downloaded image at 300 DPI, displayed in DAM viewer + search results
 - **GP SKU** — optional, manually assigned (no auto-generation)
-- **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards (toggleable via Labels button), gold-accented quick filter button on homepage
+- **GP Exclusive** — boolean flag on works, settable via CSV (`gp_exclusive` column) or admin toggle, badge displayed on catalog cards, quick filter bubble on homepage
 - **Source image access** — direct links to full-res museum source images (opens in new tab) on search cards + download from S3 on works table
 - **Excel import template** — generated via `scripts/generate-csv-template.mjs` with validation dropdowns, example rows, and instructions sheet
 - **Selection system** (cart UX pattern, replaces old selection bar):
@@ -76,10 +54,12 @@ A Digital Asset Management system for **General Public** (art print company), re
 - **Image variants:** source (full), preview (1200px), thumbnail (600px)
 - **GP branding** with Oswald 700 wordmark across all pages
 - **Deployed to Vercel** with all env vars configured
-- **Several hundred works** imported into the database with AI tagging
+- **879 works** in database (batch upload completed Feb 11, 2026)
+- **Batch upload script** (`scripts/batch-upload.mjs`) for CSV + image folder uploads to production
 
 ### What's NOT Done Yet
-- **Full catalog import** (real production images)
+- **302 works missing `artist_name`** in CSV — need data fix + re-upload (see Batch Upload Report below)
+- **2 images failed to copy** for resize (special characters in filenames — see unmatched below)
 - **SSO login** (Google/Microsoft OAuth credentials not configured)
 - **CloudFront CDN** (optional, S3 direct URLs work fine for now)
 - **Custom domain** (add in Vercel dashboard)
@@ -206,16 +186,12 @@ printf 'value' | vercel env add VAR_NAME production
 
 **Tables:** works, users, accounts, sessions, verification_tokens, selections, selection_items, search_queries
 
-**Key Work model fields added (Sessions 2-5):**
+**Key Work model fields added (Sessions 2-4):**
 - `source_label` — Human-readable source name (e.g., "Cleveland Museum of Art", "General Public")
 - `max_print_inches` — JSON `{ width, height }` computed from actual image at 300 DPI
 - `source_type` enum — includes `cleveland` (added Session 3)
 - `gp_exclusive` — Boolean flag for GP exclusive works (added Session 4)
 - GP SKU is now nullable (null for public domain imports)
-- `ai_tags_hero` — String[] of 10 primary tags (searched via raw SQL substring matching)
-- `ai_tags_hidden` — String[] of 50 extended search tags (artist references, movements, etc.)
-- `embedding` — pgvector(1536) for semantic search
-- `retailer_exclusive` — Nullable string for retailer-specific works (filterable in sidebar)
 
 **To reset/reseed:**
 ```bash
@@ -235,11 +211,11 @@ gp-dam/
 │   └── seed.mjs                   # Sample data seeder (12 works)
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx               # Homepage - catalog with search, infinite scroll, filter sidebar, quick filters
+│   │   ├── page.tsx               # Homepage - catalog with search + masonry grid + bulk select mode
 │   │   ├── layout.tsx             # Root layout (Inter + Oswald fonts)
 │   │   ├── globals.css            # Theme colors + Tailwind v4
 │   │   ├── admin/
-│   │   │   └── page.tsx           # Admin - 5 tabs: manage works (bulk actions), add work, bulk import, update metadata, public domain
+│   │   │   └── page.tsx           # Admin - 5 tabs: manage works, add work, bulk import, update metadata, public domain
 │   │   ├── selections/
 │   │   │   └── [id]/page.tsx      # Selection detail - drag reorder, notes, share, PDF/Excel/PPT export
 │   │   ├── share/
@@ -247,13 +223,9 @@ gp-dam/
 │   │   └── api/
 │   │       ├── admin/auth/route.ts                  # Password verification
 │   │       ├── auth/[...nextauth]/route.ts          # OAuth endpoint
-│   │       ├── works/route.ts                       # Works list (search, multi-value filters, pagination)
+│   │       ├── works/route.ts                       # Works list (search, filter, pagination)
 │   │       ├── works/[id]/route.ts                  # Single work (GET, PATCH, DELETE)
 │   │       ├── works/[id]/download/route.ts         # Download source image from S3
-│   │       ├── works/artists/route.ts               # Distinct artist names for filter dropdown
-│   │       ├── works/retailers/route.ts             # Distinct retailer values for filter checkboxes
-│   │       ├── works/top-tags/route.ts              # Top 20 hero tags by frequency for dynamic filters
-│   │       ├── works/retag/route.ts                 # Batch re-tag with AI (tags + embeddings + workType)
 │   │       ├── works/update-metadata/route.ts       # CSV metadata update for existing works
 │   │       ├── upload/route.ts                      # Import: CSV+ZIP or images-only
 │   │       ├── rijksmuseum/{search,import}/route.ts  # Rijksmuseum search + import
@@ -351,7 +323,7 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 - **Drawer actions** — "View Selection" (opens public share page), "Edit & Share" (opens selection detail page with reorder/notes/exports), "PDF" (direct download), "Clear All"
 - **Selection detail page** — drag-to-reorder tiles, per-item notes, selection-level notes, editable name, PDF/Excel/PPT export, share link copy, delete
 - **Share** — each selection has a share token for public read-only link with masonry layout
-- **Arrow navigation** — left/right arrow keys or chevron buttons flip through works in the detail modal with wrap-around
+- **Arrow navigation** — left/right arrow keys or chevron buttons flip through works in the detail modal, with position indicator ("3 / 47") and wrap-around
 
 ---
 
@@ -362,19 +334,119 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 
 ---
 
+## Batch Upload Report — Feb 11, 2026
+
+### Overview
+
+Uploaded 1,205 artwork images from the Round 1 CSV + images folder to production at https://gp-dam.vercel.app. Due to Vercel's hard 4.5MB serverless function payload limit, images were split into two phases and large images were resized before upload.
+
+### Vercel 4.5MB Payload Limit
+
+Vercel enforces a **4.5MB request body limit** on all serverless functions across all plans (Hobby, Pro, Enterprise). This cannot be increased via `vercel.json` or `next.config.ts`. The batch upload script sends each image as a ZIP + CSV via FormData to `/api/upload`, so each image must be under ~3.5MB to fit within the limit after ZIP overhead.
+
+### Phase 1 — Small Images (under 3.5MB, no resize needed)
+
+| Metric | Count |
+|--------|-------|
+| Total images | 386 |
+| Uploaded successfully | 259 |
+| Duplicate SKU (already in DAM) | 16 |
+| Missing required CSV data (HTTP 400) | 111 |
+| Other failures | 0 |
+
+- Batch size: 1 (one image per request)
+- AI tagging: enabled
+- Duration: ~55 minutes
+- Images uploaded directly from SMB network share
+
+### Phase 2 — Large Images (over 3.5MB, resized to 2000px)
+
+| Metric | Count |
+|--------|-------|
+| Total images in CSV | 819 |
+| Matched to resized images | 817 |
+| Unmatched (filename copy failures) | 2 |
+| Uploaded successfully | 539 |
+| Duplicate SKU (already in DAM) | 87 |
+| Missing required CSV data (HTTP 400) | 191 |
+| Other failures | 0 |
+
+- Images copied from SMB share to local `/tmp/dam-large-originals/` (9.9GB)
+- Resized locally with `sips --resampleHeightWidthMax 2000 --setProperty formatOptions 80` (8 parallel jobs, ~3 minutes)
+- Resized folder: 767MB (down from 9.9GB), max file size 2.3MB
+- Batch size: 1, AI tagging enabled
+- Duration: ~2.5 hours
+- 2 unmatched images (special characters in filenames prevented copy):
+  - `GP2010205 Young Woman, with Puck the Dog (SK-A-1703-00)-RV2CC2_14x20_.jpg`
+  - `GP5014078 Factory 1_48x48_RV1_CC3Codarus.jpg`
+
+### Combined Results
+
+| Metric | Count |
+|--------|-------|
+| CSV rows parsed | 1,205 |
+| Images attempted | 1,203 |
+| **New works uploaded** | **798** |
+| Duplicate SKU skips | 103 |
+| Missing CSV data failures | 302 |
+| **Total works in DAM** | **879** |
+
+The 879 DAM count (not 798 + 103 = 901) is because some duplicate SKU entries were the same work appearing multiple times in the CSV or across phases, not 103 distinct works.
+
+### Failure Breakdown — 302 Missing Data Errors
+
+All 302 failures were **HTTP 400: "artist_name is required"**. These CSV rows have an empty `artist_name` column. No images were lost — they just need the artist name added to the CSV.
+
+**Error log spreadsheets saved to:**
+- `~/Desktop/upload-error-log.csv`
+- `/Volumes/GP-Data2/_JOBS-2/_DAM/1. DAM Images_Ready For Upload_Round 1/upload-error-log.csv`
+- `/tmp/gp-dam/phase1-small_failures.json`
+- `/tmp/gp-dam/phase2-large_failures.json`
+
+### To Upload the Remaining 302 Works
+
+1. Open the CSV and fill in the missing `artist_name` values for the 302 failed rows
+2. Save as a new CSV (e.g., `GP_DAM_Import_Round1_Fixed.csv`)
+3. Re-run the batch upload — duplicates will be harmlessly skipped:
+
+```bash
+cd /path/to/gp-dam
+node scripts/batch-upload.mjs \
+  --csv /path/to/GP_DAM_Import_Round1_Fixed.csv \
+  --images /path/to/images \
+  --batch-size 1 \
+  --url https://gp-dam.vercel.app
+```
+
+Note: Images over 3.5MB will need to be resized first (Vercel 4.5MB payload limit). Use the resized copies at `/tmp/dam-large-resized/` if they still exist, or re-run the resize process.
+
+### Temp Files Created (can be cleaned up)
+
+| Path | Size | Contents |
+|------|------|----------|
+| `/tmp/dam-large-originals/` | 9.9 GB | Original large images copied from SMB |
+| `/tmp/dam-large-resized/` | 767 MB | Resized large images (2000px, q80) |
+| `/tmp/dam-images-local/` | ~250 MB | Partial copy (abandoned) |
+| `/tmp/gp-dam/` | ~200 MB | Cloned repo + scripts + CSVs + logs |
+
+To reclaim ~11GB: `rm -rf /tmp/dam-large-originals /tmp/dam-images-local`
+
+---
+
 ## What's Next
 
 ### Immediate
-1. **Custom domain** — add in Vercel dashboard (Settings > Domains)
-2. **Continue importing** — catalog is growing, keep adding works
+1. **Fix 302 missing `artist_name` rows** in CSV and re-upload
+2. **Upload 2 unmatched images** (rename to remove special characters, or copy manually)
+3. **Custom domain** — add in Vercel dashboard (Settings > Domains)
 
 ### Soon
-3. **Date-range filter** — `createdAt` is tracked on all works, ready for UI filter
-4. **Google/Microsoft OAuth** for team login
+4. **Date-range filter** — `createdAt` is tracked on all works, ready for UI filter
+5. **Google/Microsoft OAuth** for team login
 
 ### Later
-5. **CloudFront CDN** for faster image delivery
-6. **Semantic similarity search** — "find works similar to this one" using pgvector cosine distance
+6. **CloudFront CDN** for faster image delivery
+7. **Advanced search** — boolean operators, semantic similarity
 
 ---
 
@@ -391,9 +463,5 @@ Admin > Update Metadata tab. Upload a CSV to update existing works. Matches by `
 9. **S3 direct URLs** (no CloudFront) for V1 simplicity
 10. **Selection drawer model** — replaced bottom selection bar + bulk select mode with cart-style pattern (header icon, per-card toggle, slide-out drawer with View/Edit/PDF/Clear actions)
 11. **Images-only upload** — CSV optional, titles derived from filenames, metadata updatable later
-12. **Public domain = Reductive** — all museum imports use `work_type: "reductive"` (Reductive on Paper/Canvas), but AI tagging auto-corrects based on detected medium
+12. **Public domain = Reductive** — all museum imports use `work_type: "reductive"` (Reductive on Paper/Canvas)
 13. **Free-text Source field** — admin Add Work form uses text input for source (not enum dropdown)
-14. **Dynamic filter buttons** — quick filter buttons populated from actual top tags in the catalog (not hardcoded), ensuring filters always reflect what's in the collection
-15. **Raw SQL for tag search** — Prisma's `has` only does exact array element matches; raw SQL `array_to_string() + ILIKE` enables substring matching within tags (e.g., "jewel" matches a tag "jewel tones")
-16. **Sidebar + quick filters coexist** — sidebar structured filters (work type, orientation, source, retailer, artist) combine with quick filter tag buttons via AND logic
-17. **Re-tag over retrain** — existing works can be re-tagged with enhanced AI prompts without re-importing; retag also regenerates embeddings and auto-corrects workType
