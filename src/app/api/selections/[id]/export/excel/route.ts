@@ -158,9 +158,11 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Excel export error:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    console.error("Excel export error:", errMsg, errStack);
     return NextResponse.json(
-      { error: "Failed to generate Excel file" },
+      { error: "Failed to generate Excel file", detail: errMsg, stack: errStack },
       { status: 500 }
     );
   }
