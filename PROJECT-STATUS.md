@@ -1,6 +1,6 @@
 # GP DAM - Project Status
 
-## Last Updated: Feb 11, 2026 (Session 6 — Export Fixes)
+## Last Updated: Feb 11, 2026 (Session 7 — Phase 2 Roadmap + Milestone 1)
 
 ---
 
@@ -57,6 +57,11 @@ A Digital Asset Management system for **General Public** (art print company), re
   - **PPT export** — fixed CJS/ESM module loading issue on Vercel (Turbopack externalizes pptxgenjs but resolved ESM entry in CJS context; fixed via `createRequire`)
   - **Excel export** — fixed crash when selection name contains `/` or other characters illegal in Excel worksheet tab names (e.g. "Selection 2/11/2026"); now sanitized
   - Added `jszip` and `image-size` to `serverExternalPackages` in `next.config.ts`
+- **Milestone 1 features (Session 7):**
+  - **"New" badge** — green pill on works uploaded within 30 days
+  - **Sort dropdown** — Newest, Oldest, Title A-Z in catalog toolbar
+  - **Retailer URL links** — clickable "Available at RH" badge with external link icon when `retailerUrl` is set
+- **Phase 2 roadmap** documented in `PHASE-2-ROADMAP.md`
 - **Deployed to Vercel** with all env vars configured
 - **879 works** in database (batch upload completed Feb 11, 2026)
 - **Batch upload script** (`scripts/batch-upload.mjs`) for CSV + image folder uploads to production
@@ -64,6 +69,7 @@ A Digital Asset Management system for **General Public** (art print company), re
 ### What's NOT Done Yet
 - **302 works missing `artist_name`** in CSV — need data fix + re-upload (see Batch Upload Report below)
 - **2 images failed to copy** for resize (special characters in filenames — see unmatched below)
+- **Phase 2 Milestones 2-6** — see `PHASE-2-ROADMAP.md` for full details
 - **SSO login** (Google/Microsoft OAuth credentials not configured)
 - **CloudFront CDN** (optional, S3 direct URLs work fine for now)
 - **Custom domain** (add in Vercel dashboard)
@@ -434,6 +440,49 @@ Note: Images over 3.5MB will need to be resized first (Vercel 4.5MB payload limi
 | `/tmp/gp-dam/` | ~200 MB | Cloned repo + scripts + CSVs + logs |
 
 To reclaim ~11GB: `rm -rf /tmp/dam-large-originals /tmp/dam-images-local`
+
+---
+
+## Session 7 — Phase 2 Roadmap + Milestone 1 (Feb 11, 2026)
+
+### Phase 2 Roadmap Created
+
+Full roadmap saved to `PHASE-2-ROADMAP.md` and `~/claude/gp-dam/PHASE-2-ROADMAP.md`. Vision: transform the DAM into a trade-facing art commerce platform.
+
+**6 Milestones:**
+1. Quick wins (New badge, sort, retailer filters) — **Done**
+2. Multi-brand catalog (GP, Visual Contrast, Simply Framed)
+3. Trade login + dynamic pricing (auth, wholesale vs retail, quote flow)
+4. Framed inventory + size calculator + frame selection
+5. Automated intake pipeline (S3 drop zone / watched folder)
+6. Room rendering / frame visualizer (long-term)
+
+### Milestone 1A — "New" Badge + Sort by Date (Done)
+- Green "New" badge on works uploaded within the last 30 days
+- Sort dropdown in toolbar: Newest, Oldest, Title A-Z
+- API accepts `sortBy` query param
+
+### Milestone 1B — Retailer Badges + Links (Done)
+- New `retailerUrl` field added to Work model (nullable, schema pushed to prod)
+- Retailer badge on work cards becomes clickable link when URL exists: "Available at RH" with external link icon
+- CSV import and metadata update both support `retailer_url` column
+- Retailer URLs can be bulk-imported via Update Metadata CSV
+
+### Milestone 1C — Data Cleanup (Pending)
+- 302 works still missing `artist_name` — need CSV fix + re-upload
+- 2 images with special character filenames still unmatched
+
+### Other Session 7 Work
+- Vercel CLI authenticated (`npx vercel login`)
+- Vercel project linked (`npx vercel link`)
+- Production env vars pulled to local `.env`
+- `CLAUDE.md` created in repo root (auto-loaded by Claude Code sessions)
+- `~/claude/` workspace folder created for cross-project reference docs
+
+### Key Design Decision: Pricing is Optional
+- Works without pricing show "Request Quote" instead of a price
+- Pricing can be backfilled over time via CSV or manual entry
+- Commerce features (trade login, cart, sales reports) don't require comprehensive pricing to launch
 
 ---
 
