@@ -35,6 +35,7 @@ interface Work {
   imageUrlThumbnail: string | null;
   aiTagsHero: string[];
   retailerExclusive: string | null;
+  retailerUrl: string | null;
   gpExclusive: boolean;
   createdAt: string;
 }

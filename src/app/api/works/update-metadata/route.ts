@@ -13,6 +13,7 @@ interface MetadataRow {
   work_type?: string;
   dimensions?: string;
   retailer_exclusive?: string;
+  retailer_url?: string;
   artist_exclusive_to?: string;
   source_type?: string;
   gp_exclusive?: string;
@@ -231,6 +232,10 @@ export async function POST(request: NextRequest) {
       if (row.retailer_exclusive !== undefined && row.retailer_exclusive !== "") {
         updateData.retailerExclusive = row.retailer_exclusive.trim() || null;
         fieldsUpdated.push("retailer_exclusive");
+      }
+      if (row.retailer_url !== undefined && row.retailer_url !== "") {
+        updateData.retailerUrl = row.retailer_url.trim() || null;
+        fieldsUpdated.push("retailer_url");
       }
       if (row.artist_exclusive_to !== undefined && row.artist_exclusive_to !== "") {
         updateData.artistExclusiveTo = row.artist_exclusive_to.trim() || null;

@@ -129,6 +129,7 @@ model Work {
   maxPrintInches   Json?       @map("max_print_inches") // { width: float, height: float } — computed from source image
   workType         WorkType    @map("work_type")
   retailerExclusive String?    @map("retailer_exclusive") // RH, CB2, Rejuvenation, Anthropologie
+  retailerUrl       String?    @map("retailer_url") // Direct link to retailer product page
   artistExclusiveTo String?    @map("artist_exclusive_to")
   gpExclusive       Boolean    @default(false) @map("gp_exclusive") // true = GP exclusive, not available through other retailers
   customResizeAvailable Boolean @default(true) @map("custom_resize_available")

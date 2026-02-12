@@ -13,6 +13,7 @@ export interface CsvRow {
   work_type: string;
   dimensions?: string;
   retailer_exclusive?: string;
+  retailer_url?: string;
   artist_exclusive_to?: string;
   source_type?: string;
   source_id?: string;
@@ -336,17 +337,17 @@ export async function processWorkImport(
           `INSERT INTO works (
             id, gp_sku, title, artist_name, source_type, source_id, source_label,
             dimensions_inches, max_print_inches, orientation, work_type,
-            retailer_exclusive, artist_exclusive_to, gp_exclusive,
+            retailer_exclusive, retailer_url, artist_exclusive_to, gp_exclusive,
             image_url_thumbnail, image_url_preview, image_url_source,
             ai_tags_hero, ai_tags_hidden, dominant_colors, embedding,
             available_sizes, status, created_at, updated_at
           ) VALUES (
             $1::uuid, $2, $3, $4, $5::"SourceType", $6, $7,
             $8::jsonb, $9::jsonb, $10::"Orientation", $11::"WorkType",
-            $12, $13, $14,
-            $15, $16, $17,
-            $18::text[], $19::text[], $20::jsonb, $21::vector,
-            $22::text[], 'active'::"WorkStatus", NOW(), NOW()
+            $12, $13, $14, $15,
+            $16, $17, $18,
+            $19::text[], $20::text[], $21::jsonb, $22::vector,
+            $23::text[], 'active'::"WorkStatus", NOW(), NOW()
           )`,
           workId,
           gpSku || null,
@@ -360,6 +361,7 @@ export async function processWorkImport(
           orientation,
           row.work_type.trim().toLowerCase(),
           row.retailer_exclusive?.trim() || null,
+          row.retailer_url?.trim() || null,
           row.artist_exclusive_to?.trim() || null,
           gpExclusive,
           imageUrlThumbnail,
@@ -386,6 +388,7 @@ export async function processWorkImport(
             maxPrintInches: maxPrintInches || undefined,
             orientation,
             retailerExclusive: row.retailer_exclusive?.trim() || null,
+            retailerUrl: row.retailer_url?.trim() || null,
             artistExclusiveTo: row.artist_exclusive_to?.trim() || null,
             gpExclusive,
             availableSizes,

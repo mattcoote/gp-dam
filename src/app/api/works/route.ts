@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
           imageUrlPreview: true,
           aiTagsHero: true,
           retailerExclusive: true,
+          retailerUrl: true,
           gpExclusive: true,
           availableSizes: true,
           dominantColors: true,

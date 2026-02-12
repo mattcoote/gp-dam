@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Check } from "lucide-react";
+import { Plus, Check, ExternalLink } from "lucide-react";
 import { useCart } from "@/components/cart/CartContext";
 
 interface WorkCardProps {
@@ -19,6 +19,7 @@ interface WorkCardProps {
     imageUrlThumbnail: string | null;
     aiTagsHero: string[];
     retailerExclusive: string | null;
+    retailerUrl?: string | null;
     gpExclusive?: boolean;
     availableSizes?: string[];
     createdAt?: string;
@@ -110,9 +111,22 @@ export default function WorkCard({
               </div>
             )}
             {work.retailerExclusive && (
-              <div className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 uppercase tracking-wider">
-                {work.retailerExclusive}
-              </div>
+              work.retailerUrl ? (
+                <a
+                  href={work.retailerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 uppercase tracking-wider hover:bg-amber-100 transition-colors flex items-center gap-1"
+                >
+                  Available at {work.retailerExclusive}
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              ) : (
+                <div className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 uppercase tracking-wider">
+                  {work.retailerExclusive}
+                </div>
+              )
             )}
           </div>
         )}
