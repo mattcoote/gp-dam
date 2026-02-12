@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
         where,
         skip,
         take: limit,
-        orderBy: sortBy === "oldest" ? { createdAt: "asc" } : sortBy === "title" ? { title: "asc" } : { createdAt: "desc" },
+        orderBy: sortBy === "oldest" ? { createdAt: "asc" } : sortBy === "title" ? { title: "asc" } : sortBy === "artist" ? { artistName: "asc" } : { createdAt: "desc" },
         select: {
           id: true,
           gpSku: true,
