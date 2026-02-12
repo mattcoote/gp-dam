@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Tag,
+  ArrowUpDown,
 } from "lucide-react";
 import WorkCard from "@/components/works/WorkCard";
 import WorkDetailModal from "@/components/works/WorkDetailModal";
@@ -333,6 +334,7 @@ function HomeContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [thumbSize, setThumbSize] = useState<"large" | "small">("large");
   const [showBadges, setShowBadges] = useState(true);
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
   const [cartOpen, setCartOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -419,9 +421,11 @@ function HomeContent() {
       if (filters.retailers.length > 0)
         params.set("retailerExclusive", filters.retailers.join(","));
 
+      if (sortBy !== "newest") params.set("sortBy", sortBy);
+
       return params;
     },
-    [debouncedSearch, activeFilter, artistFilter, filters, sidebarTagFilter]
+    [debouncedSearch, activeFilter, artistFilter, filters, sidebarTagFilter, sortBy]
   );
 
   // Initial fetch (page 1) — resets when filters/search change
@@ -614,6 +618,21 @@ function HomeContent() {
           </button>
 
           <div className="flex items-center gap-2">
+          {/* Sort dropdown */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "title")}
+              className="appearance-none rounded-lg border border-border pl-8 pr-8 py-1.5 text-sm text-muted-foreground hover:border-foreground hover:text-foreground transition-colors bg-transparent cursor-pointer focus:outline-none focus:border-foreground"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="title">Title A-Z</option>
+            </select>
+            <ArrowUpDown className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+            <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+          </div>
+
           {/* Badge visibility toggle */}
           <button
             onClick={() => setShowBadges(!showBadges)}

@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   const gpExclusive = searchParams.get("gpExclusive");
   const statusParam = searchParams.get("status");
   const status = statusParam === "all" ? undefined : ((statusParam as WorkStatus) || "active");
+  const sortBy = searchParams.get("sortBy") || "newest";
 
   const skip = (page - 1) * limit;
 
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: sortBy === "oldest" ? { createdAt: "asc" } : sortBy === "title" ? { title: "asc" } : { createdAt: "desc" },
         select: {
           id: true,
           gpSku: true,

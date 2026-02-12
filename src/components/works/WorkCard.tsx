@@ -21,6 +21,7 @@ interface WorkCardProps {
     retailerExclusive: string | null;
     gpExclusive?: boolean;
     availableSizes?: string[];
+    createdAt?: string;
   };
   onSelect?: (work: WorkCardProps["work"]) => void;
   compact?: boolean;
@@ -38,6 +39,7 @@ export default function WorkCard({
 
   const dims = work.dimensionsInches as { width: number; height: number } | null;
   const inCart = isInCart(work.id);
+  const isNew = work.createdAt && Date.now() - new Date(work.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000;
 
   function handleCartToggle(e: React.MouseEvent) {
     e.stopPropagation();
@@ -97,6 +99,11 @@ export default function WorkCard({
         {/* Badges */}
         {showBadges && (
           <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+            {isNew && (
+              <div className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-medium text-white uppercase tracking-wider">
+                New
+              </div>
+            )}
             {work.gpExclusive && (
               <div className="rounded-full bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white uppercase tracking-wider">
                 GP Exclusive
